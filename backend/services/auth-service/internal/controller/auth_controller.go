@@ -51,7 +51,7 @@ func (c *AuthController) Register(ctx *gin.Context) {
 	// Call service
 	authResponse, err := c.authService.Register(ctx.Request.Context(), &req)
 	if err != nil {
-		statusCode := http.StatusInternalServer error
+		statusCode := http.StatusInternalServerError
 		errorMessage := message.ErrInternalServer
 
 		// Handle specific errors
@@ -59,7 +59,7 @@ func (c *AuthController) Register(ctx *gin.Context) {
 			statusCode = http.StatusConflict
 			errorMessage = message.ErrEmailAlreadyExists
 		} else if errors.Is(err, service.ErrHashPassword) {
-			statusCode = http.StatusInternalServer
+			statusCode = http.StatusInternalServerError
 			errorMessage = message.ErrHashPassword
 		}
 
@@ -106,7 +106,7 @@ func (c *AuthController) Login(ctx *gin.Context) {
 	// Call service
 	authResponse, err := c.authService.Login(ctx.Request.Context(), &req)
 	if err != nil {
-		statusCode := http.StatusInternalServer
+		statusCode := http.StatusInternalServerError
 		errorMessage := message.ErrInternalServer
 
 		// Handle specific errors
@@ -154,7 +154,7 @@ func (c *AuthController) GetProfile(ctx *gin.Context) {
 	// Call service
 	userResponse, err := c.authService.GetUserByID(ctx.Request.Context(), userID.(string))
 	if err != nil {
-		statusCode := http.StatusInternalServer
+		statusCode := http.StatusInternalServerError
 		errorMessage := message.ErrInternalServer
 
 		if errors.Is(err, repository.ErrUserNotFound) {

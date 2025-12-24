@@ -8,13 +8,13 @@ import (
 
 // Config holds application configuration
 type Config struct {
-	Port         string
-	Database     DatabaseConfig
-	Redis        RedisConfig
-	JWTSecret    string
-	JWTExpiry    string
-	BcryptCost   int
-	Environment  string
+	Port        string
+	Database    DatabaseConfig
+	Redis       RedisConfig
+	JWTSecret   string
+	JWTExpiry   string
+	BcryptCost  int
+	Environment string
 }
 
 // DatabaseConfig holds database configuration

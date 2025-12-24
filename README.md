@@ -25,6 +25,7 @@ cp .env.example .env
 ```
 
 **Environment Variables Structure:**
+
 ```env
 # Database - Separate variables for flexibility
 DB_HOST=localhost
@@ -63,6 +64,9 @@ docker-compose logs -f
 
 # Stop semua services
 docker-compose down
+
+# Dev
+docker-compose -f docker-compose.dev.yml logs -f
 ```
 
 ### 3. Verify Services
@@ -239,6 +243,7 @@ curl http://localhost:8080/api/v1/events
 ## 📝 Current Status
 
 ✅ **Phase 1 COMPLETED**: Foundation & Infrastructure Setup
+
 - [x] Monorepo structure
 - [x] Docker Compose configuration
 - [x] Database migrations
@@ -246,6 +251,7 @@ curl http://localhost:8080/api/v1/events
 - [x] Frontend basic setup
 
 🚧 **Next Steps**:
+
 - [ ] Implement Auth Service (registration, login, JWT)
 - [ ] Implement Event Service (CRUD, search)
 - [ ] Implement Ticketing Service (reservation with locking)

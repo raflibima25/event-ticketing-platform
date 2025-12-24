@@ -3,8 +3,10 @@ package main
 import (
 	"fmt"
 	"log"
+	"path/filepath"
 	"time"
 
+	"github.com/joho/godotenv"
 	"github.com/raflibima25/event-ticketing-platform/backend/services/auth-service/config"
 	"github.com/raflibima25/event-ticketing-platform/backend/services/auth-service/internal/controller"
 	"github.com/raflibima25/event-ticketing-platform/backend/services/auth-service/internal/repository"
@@ -14,6 +16,14 @@ import (
 )
 
 func main() {
+	// Load .env file from project root
+	envPath := filepath.Join("..", "..", "..", ".env")
+	if err := godotenv.Load(envPath); err != nil {
+		log.Printf("⚠️  Warning: .env file not found at %s, using environment variables or defaults", envPath)
+	} else {
+		log.Println("✓ Loaded .env file")
+	}
+
 	// Load configuration
 	cfg := config.Load()
 
@@ -30,6 +40,13 @@ func main() {
 	defer db.Close()
 
 	log.Println("✓ Database connected successfully")
+
+	// Run database migrations automatically
+	migrationsPath := "../../migrations"
+	if err := utility.RunMigrations(db, migrationsPath); err != nil {
+		log.Printf("⚠️  Migration error: %v", err)
+		log.Println("⚠️  Continuing without migrations (ensure database schema is correct)")
+	}
 
 	// Initialize JWT utility
 	jwtUtil, err := utility.NewJWTUtil(cfg.JWTSecret, cfg.JWTExpiry)

@@ -3,24 +3,78 @@ package main
 import (
 	"fmt"
 	"log"
-	"net/http"
-	"os"
-	"github.com/gin-gonic/gin"
+	"path/filepath"
+	"time"
+
+	"github.com/joho/godotenv"
+	"github.com/raflibima25/event-ticketing-platform/backend/services/event-service/config"
+	"github.com/raflibima25/event-ticketing-platform/backend/services/event-service/internal/controller"
+	"github.com/raflibima25/event-ticketing-platform/backend/services/event-service/internal/repository"
+	"github.com/raflibima25/event-ticketing-platform/backend/services/event-service/internal/router"
+	"github.com/raflibima25/event-ticketing-platform/backend/services/event-service/internal/service"
+	"github.com/raflibima25/event-ticketing-platform/backend/services/event-service/internal/utility"
 )
 
 func main() {
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8082"
+	// Load .env file from project root
+	envPath := filepath.Join("..", "..", "..", ".env")
+	if err := godotenv.Load(envPath); err != nil {
+		log.Printf("⚠️  Warning: .env file not found at %s, using environment variables or defaults", envPath)
+	} else {
+		log.Println("✓ Loaded .env file")
 	}
 
-	r := gin.Default()
-	r.GET("/health", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"status": "healthy", "service": "event-service"})
-	})
+	// Load configuration
+	cfg := config.Load()
 
-	fmt.Printf("Event Service (placeholder) starting on port %s\n", port)
-	if err := r.Run(":" + port); err != nil {
-		log.Fatal("Failed to start:", err)
+	// Initialize database connection
+	db, err := utility.NewDatabase(utility.DatabaseConfig{
+		URL:             cfg.GetDatabaseURL(),
+		MaxOpenConns:    25,
+		MaxIdleConns:    5,
+		ConnMaxLifetime: 5 * time.Minute,
+	})
+	if err != nil {
+		log.Fatalf("Failed to connect to database: %v", err)
+	}
+	defer db.Close()
+
+	log.Println("Successfully connected to database")
+
+	// Run database migrations automatically
+	migrationsPath := "../../migrations"
+	if err := utility.RunMigrations(db, migrationsPath); err != nil {
+		log.Printf("⚠️  Migration error: %v", err)
+		log.Println("⚠️  Continuing without migrations (ensure database schema is correct)")
+	}
+
+	// Initialize Repository Layer
+	eventRepo := repository.NewEventRepository(db)
+	ticketTierRepo := repository.NewTicketTierRepository(db)
+
+	log.Println("Repository layer initialized")
+
+	// Initialize Service Layer
+	eventService := service.NewEventService(eventRepo, ticketTierRepo)
+
+	log.Println("Service layer initialized")
+
+	// Initialize Controller Layer
+	eventController := controller.NewEventController(eventService)
+
+	log.Println("Controller layer initialized")
+
+	// Setup Router
+	r := router.SetupRouter(eventController, cfg.JWTSecret)
+
+	log.Println("Router configured")
+
+	// Start server
+	addr := fmt.Sprintf(":%s", cfg.Port)
+	log.Printf("Event Service starting on port %s", cfg.Port)
+	log.Printf("Environment: %s", cfg.Environment)
+
+	if err := r.Run(addr); err != nil {
+		log.Fatalf("Failed to start server: %v", err)
 	}
 }

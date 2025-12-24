@@ -50,3 +50,5 @@ coverage/
 
 # Misc
 .air.toml
+
+.claude
