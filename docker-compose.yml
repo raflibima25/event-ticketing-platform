@@ -1,0 +1,237 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: ticketing-postgres
+    environment:
+      POSTGRES_DB: ticketing_platform
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/migrations:/docker-entrypoint-initdb.d/migrations:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ticketing-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: ticketing-redis
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ticketing-network
+
+  # Migration runner (runs once to setup database)
+  migrate:
+    image: migrate/migrate:latest
+    container_name: ticketing-migrate
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./backend/migrations:/migrations:ro
+    command:
+      - "-path=/migrations"
+      - "-database=postgres://postgres:postgres@postgres:5432/ticketing_platform?sslmode=disable"
+      - "up"
+    networks:
+      - ticketing-network
+    restart: on-failure
+
+  # API Gateway - Entry point for all HTTP requests
+  api-gateway:
+    build:
+      context: .
+      dockerfile: ./backend/services/gateway-service/Dockerfile
+    container_name: ticketing-gateway
+    environment:
+      - PORT=8080
+      - AUTH_SERVICE_URL=http://auth-service:8081
+      - EVENT_SERVICE_URL=http://event-service:8082
+      - TICKETING_SERVICE_URL=http://ticketing-service:8083
+      - PAYMENT_SERVICE_URL=http://payment-service:8084
+      - JWT_SECRET=${JWT_SECRET:-dev-secret-key-change-in-production}
+      - CORS_ALLOWED_ORIGINS=http://localhost:3000
+    ports:
+      - "8080:8080"
+    depends_on:
+      - auth-service
+      - event-service
+      - ticketing-service
+      - payment-service
+    networks:
+      - ticketing-network
+    restart: unless-stopped
+    volumes:
+      - ./backend:/app:cached
+
+  # Auth Service
+  auth-service:
+    build:
+      context: .
+      dockerfile: ./backend/services/auth-service/Dockerfile
+    container_name: ticketing-auth
+    environment:
+      - PORT=8081
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=ticketing_platform
+      - DB_SSL_MODE=disable
+      - JWT_SECRET=${JWT_SECRET:-dev-secret-key-change-in-production}
+      - JWT_EXPIRY=24h
+      - BCRYPT_COST=10
+    ports:
+      - "8081:8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    networks:
+      - ticketing-network
+    restart: unless-stopped
+    volumes:
+      - ./backend:/app:cached
+
+  # Event Service
+  event-service:
+    build:
+      context: .
+      dockerfile: ./backend/services/event-service/Dockerfile
+    container_name: ticketing-event
+    environment:
+      - PORT=8082
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=ticketing_platform
+      - DB_SSL_MODE=disable
+    ports:
+      - "8082:8082"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    networks:
+      - ticketing-network
+    restart: unless-stopped
+    volumes:
+      - ./backend:/app:cached
+
+  # Ticketing Service
+  ticketing-service:
+    build:
+      context: .
+      dockerfile: ./backend/services/ticketing-service/Dockerfile
+    container_name: ticketing-ticketing
+    environment:
+      - PORT=8083
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=ticketing_platform
+      - DB_SSL_MODE=disable
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=
+      - REDIS_DB=0
+      - RESERVATION_TIMEOUT=15m
+      - EVENT_SERVICE_URL=http://event-service:8082
+    ports:
+      - "8083:8083"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+      event-service:
+        condition: service_started
+    networks:
+      - ticketing-network
+    restart: unless-stopped
+    volumes:
+      - ./backend:/app:cached
+
+  # Payment Service
+  payment-service:
+    build:
+      context: .
+      dockerfile: ./backend/services/payment-service/Dockerfile
+    container_name: ticketing-payment
+    environment:
+      - PORT=8084
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=ticketing_platform
+      - DB_SSL_MODE=disable
+      - XENDIT_API_KEY=${XENDIT_API_KEY:-}
+      - XENDIT_WEBHOOK_TOKEN=${XENDIT_WEBHOOK_TOKEN:-}
+      - XENDIT_BASE_URL=https://api.xendit.co
+      - TICKETING_SERVICE_URL=http://ticketing-service:8083
+    ports:
+      - "8084:8084"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+      ticketing-service:
+        condition: service_started
+    networks:
+      - ticketing-network
+    restart: unless-stopped
+    volumes:
+      - ./backend:/app:cached
+
+  # Frontend (Next.js)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: ticketing-frontend
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8080/api/v1
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api-gateway
+    networks:
+      - ticketing-network
+    restart: unless-stopped
+    volumes:
+      - ./frontend:/app:cached
+      - /app/node_modules
+      - /app/.next
+
+networks:
+  ticketing-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:

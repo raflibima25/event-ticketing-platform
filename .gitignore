@@ -1,0 +1,52 @@
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+/vendor/
+/tmp/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+/.next/
+/out/
+.vercel
+
+# Testing
+coverage/
+*.coverprofile
+
+# Build
+/dist/
+/build/
+*.log
+
+# Docker
+*.pid
+
+# Database
+*.db
+*.sqlite
+
+# Misc
+.air.toml
