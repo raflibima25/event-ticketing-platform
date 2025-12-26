@@ -24,10 +24,10 @@ func SetupRouter(eventController *controller.EventController, jwtSecret string) 
 		// Public event routes
 		events := v1.Group("/events")
 		{
-			events.GET("", eventController.ListEvents)                                 // List events with filters
-			events.GET("/:id", eventController.GetEvent)                               // Get event by ID
-			events.GET("/slug/:slug", eventController.GetEventBySlug)                  // Get event by slug
-			events.GET("/:event_id/ticket-tiers", eventController.GetEventTicketTiers) // Get ticket tiers for event
+			events.GET("", eventController.ListEvents)                      // List events with filters
+			events.GET("/slug/:slug", eventController.GetEventBySlug)       // Get event by slug (must be before /:id)
+			events.GET("/:id", eventController.GetEvent)                    // Get event by ID
+			events.GET("/:id/ticket-tiers", eventController.GetEventTicketTiers) // Get ticket tiers for event
 		}
 
 		// Public ticket tier routes

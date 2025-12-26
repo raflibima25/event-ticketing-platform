@@ -346,9 +346,9 @@ func (c *EventController) GetTicketTier(ctx *gin.Context) {
 	})
 }
 
-// GetEventTicketTiers handles GET /events/:event_id/ticket-tiers
+// GetEventTicketTiers handles GET /events/:id/ticket-tiers
 func (c *EventController) GetEventTicketTiers(ctx *gin.Context) {
-	eventID := ctx.Param("event_id")
+	eventID := ctx.Param("id")
 
 	tiers, err := c.eventService.GetTicketTiersByEventID(ctx.Request.Context(), eventID)
 	if err != nil {
