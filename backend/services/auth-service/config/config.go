@@ -41,7 +41,7 @@ func Load() *Config {
 	redisDB, _ := strconv.Atoi(getEnv("REDIS_DB", "0"))
 
 	return &Config{
-		Port: getEnv("PORT", "8081"),
+		Port: getEnv("AUTH_SERVER_PORT", "8081"),
 		Database: DatabaseConfig{
 			Host:     getEnv("DB_HOST", "localhost"),
 			Port:     getEnv("DB_PORT", "5432"),

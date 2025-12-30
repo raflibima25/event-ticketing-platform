@@ -1,0 +1,61 @@
+syntax = "proto3";
+
+package payment;
+
+option go_package = "github.com/raflibima25/event-ticketing-platform/backend/pb/payment;payment";
+
+// PaymentService defines gRPC service for payment operations
+service PaymentService {
+  // CreateInvoice creates a new payment invoice for an order
+  rpc CreateInvoice(CreateInvoiceRequest) returns (CreateInvoiceResponse);
+
+  // GetPaymentStatus retrieves payment status by order ID
+  rpc GetPaymentStatus(GetPaymentStatusRequest) returns (GetPaymentStatusResponse);
+}
+
+// CreateInvoiceRequest contains data needed to create a payment invoice
+message CreateInvoiceRequest {
+  string order_id = 1;          // UUID of the order
+  string user_id = 2;           // UUID of the user
+  string email = 3;             // User's email for invoice
+  string customer_name = 4;     // Customer name
+  double amount = 5;            // Total amount (grand_total)
+  string description = 6;       // Invoice description
+  repeated InvoiceItem items = 7; // Line items in the invoice
+}
+
+// InvoiceItem represents a line item in the invoice
+message InvoiceItem {
+  string name = 1;        // Item name (e.g., "VIP Ticket")
+  int32 quantity = 2;     // Quantity ordered
+  double price = 3;       // Price per unit
+}
+
+// CreateInvoiceResponse returns the created invoice details
+message CreateInvoiceResponse {
+  string payment_id = 1;        // Internal payment transaction ID
+  string invoice_id = 2;        // Xendit invoice ID
+  string invoice_url = 3;       // Payment URL for user
+  string external_id = 4;       // External ID (ORDER-{order_id})
+  double amount = 5;            // Invoice amount
+  string status = 6;            // Payment status (pending, paid, expired, failed)
+  string expires_at = 7;        // Invoice expiration time (ISO8601)
+  string created_at = 8;        // Creation timestamp (ISO8601)
+}
+
+// GetPaymentStatusRequest contains order ID to check payment status
+message GetPaymentStatusRequest {
+  string order_id = 1;          // UUID of the order
+}
+
+// GetPaymentStatusResponse returns payment status information
+message GetPaymentStatusResponse {
+  string payment_id = 1;        // Internal payment transaction ID
+  string order_id = 2;          // Order UUID
+  string invoice_id = 3;        // Xendit invoice ID
+  double amount = 4;            // Payment amount
+  string status = 5;            // Payment status
+  string payment_method = 6;    // Payment method used (if paid)
+  string paid_at = 7;           // Payment timestamp (ISO8601, if paid)
+  string created_at = 8;        // Creation timestamp (ISO8601)
+}

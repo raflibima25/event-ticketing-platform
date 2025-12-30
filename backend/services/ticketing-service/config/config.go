@@ -9,12 +9,25 @@ import (
 
 // Config holds application configuration
 type Config struct {
-	Port        string
-	Database    DatabaseConfig
-	Redis       RedisConfig
-	JWTSecret   string
-	Reservation ReservationConfig
-	Environment string
+	Port           string
+	GRPCPort       string
+	Database       DatabaseConfig
+	Redis          RedisConfig
+	JWTSecret      string
+	Reservation    ReservationConfig
+	PaymentService PaymentServiceConfig
+	AuthService    AuthServiceConfig
+	Environment    string
+}
+
+// PaymentServiceConfig holds payment service gRPC configuration
+type PaymentServiceConfig struct {
+	GRPCAddress string
+}
+
+// AuthServiceConfig holds auth service HTTP configuration
+type AuthServiceConfig struct {
+	BaseURL string
 }
 
 // DatabaseConfig holds database configuration
@@ -68,7 +81,8 @@ func Load() *Config {
 	}
 
 	return &Config{
-		Port: getEnv("PORT", "8083"),
+		Port:     getEnv("TICKETING_SERVER_PORT", "8083"),
+		GRPCPort: getEnv("TICKETING_GRPC_PORT", "50053"),
 		Database: DatabaseConfig{
 			Host:     getEnv("DB_HOST", "localhost"),
 			Port:     getEnv("DB_PORT", "5432"),
@@ -87,6 +101,9 @@ func Load() *Config {
 		Reservation: ReservationConfig{
 			Timeout:         timeout,
 			CleanupInterval: cleanupInterval,
+		},
+		PaymentService: PaymentServiceConfig{
+			GRPCAddress: getEnv("PAYMENT_SERVICE_GRPC_ADDR", "localhost:50054"),
 		},
 		Environment: getEnv("ENVIRONMENT", "development"),
 	}

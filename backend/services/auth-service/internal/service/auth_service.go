@@ -79,12 +79,12 @@ func (s *authService) Register(ctx context.Context, req *request.RegisterRequest
 	}
 
 	// Generate tokens
-	accessToken, err := s.jwtUtil.GenerateToken(user.ID, user.Email, user.Role)
+	accessToken, err := s.jwtUtil.GenerateToken(user.ID, user.Email, user.FullName, user.Role)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate access token: %w", err)
 	}
 
-	refreshToken, err := s.jwtUtil.GenerateToken(user.ID, user.Email, user.Role)
+	refreshToken, err := s.jwtUtil.GenerateToken(user.ID, user.Email, user.FullName, user.Role)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate refresh token: %w", err)
 	}
@@ -116,12 +116,12 @@ func (s *authService) Login(ctx context.Context, req *request.LoginRequest) (*re
 	}
 
 	// Generate tokens
-	accessToken, err := s.jwtUtil.GenerateToken(user.ID, user.Email, user.Role)
+	accessToken, err := s.jwtUtil.GenerateToken(user.ID, user.Email, user.FullName, user.Role)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate access token: %w", err)
 	}
 
-	refreshToken, err := s.jwtUtil.GenerateToken(user.ID, user.Email, user.Role)
+	refreshToken, err := s.jwtUtil.GenerateToken(user.ID, user.Email, user.FullName, user.Role)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate refresh token: %w", err)
 	}

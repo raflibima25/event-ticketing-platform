@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"time"
 
+	"github.com/raflibima25/event-ticketing-platform/backend/services/ticketing-service/internal/client"
 	"github.com/raflibima25/event-ticketing-platform/backend/services/ticketing-service/internal/payload/entity"
 	"github.com/raflibima25/event-ticketing-platform/backend/services/ticketing-service/internal/payload/request"
 	"github.com/raflibima25/event-ticketing-platform/backend/services/ticketing-service/internal/payload/response"
@@ -34,7 +36,13 @@ type reservationService struct {
 	orderItemRepo  repository.OrderItemRepository
 	ticketTierRepo repository.TicketTierRepository
 	redisClient    *utility.RedisClient
+	paymentClient  PaymentClient
 	timeout        time.Duration
+}
+
+// PaymentClient defines interface for payment service communication
+type PaymentClient interface {
+	CreateInvoice(ctx context.Context, req *client.CreateInvoiceRequest) (*client.CreateInvoiceResponse, error)
 }
 
 // NewReservationService creates new reservation service instance
@@ -43,6 +51,7 @@ func NewReservationService(
 	orderItemRepo repository.OrderItemRepository,
 	ticketTierRepo repository.TicketTierRepository,
 	redisClient *utility.RedisClient,
+	paymentClient PaymentClient,
 	timeout time.Duration,
 ) ReservationService {
 	return &reservationService{
@@ -50,6 +59,7 @@ func NewReservationService(
 		orderItemRepo:  orderItemRepo,
 		ticketTierRepo: ticketTierRepo,
 		redisClient:    redisClient,
+		paymentClient:  paymentClient,
 		timeout:        timeout,
 	}
 }
@@ -110,6 +120,7 @@ func (s *reservationService) CreateReservation(ctx context.Context, userID strin
 	// Step 4: Calculate totals and validate availability
 	var totalAmount float64
 	tierPrices := make(map[string]float64) // Store tier prices
+	tierNames := make(map[string]string)   // Store tier names for invoice
 
 	for _, item := range req.Items {
 		// Get tier with row-level lock (SELECT FOR UPDATE)
@@ -141,6 +152,7 @@ func (s *reservationService) CreateReservation(ctx context.Context, userID strin
 		subtotal := tier.Price * float64(item.Quantity)
 		totalAmount += subtotal
 		tierPrices[item.TicketTierID] = tier.Price
+		tierNames[item.TicketTierID] = tier.Name
 
 		// Update sold count (reserve inventory)
 		if err := s.ticketTierRepo.UpdateSoldCount(ctx, tx, item.TicketTierID, item.Quantity); err != nil {
@@ -152,8 +164,8 @@ func (s *reservationService) CreateReservation(ctx context.Context, userID strin
 	}
 
 	// Step 5: Calculate fees
-	platformFee := totalAmount * 0.05  // 5% platform fee
-	serviceFee := 2500.0               // Rp 2,500 service fee
+	platformFee := totalAmount * 0.05 // 5% platform fee
+	serviceFee := 2500.0              // Rp 2,500 service fee
 	grandTotal := totalAmount + platformFee + serviceFee
 
 	// Step 6: Create order
@@ -193,8 +205,54 @@ func (s *reservationService) CreateReservation(ctx context.Context, userID strin
 		return nil, fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
-	// Step 9: Return response
-	return response.ToOrderResponse(order, orderItems), nil
+	// Step 9: Create payment invoice via gRPC (if payment client available)
+	orderResp := response.ToOrderResponse(order, orderItems)
+
+	if s.paymentClient != nil {
+		// Prepare invoice items
+		invoiceItems := make([]client.InvoiceItem, len(orderItems))
+		for i, item := range orderItems {
+			invoiceItems[i] = client.InvoiceItem{
+				Name:     tierNames[item.TicketTierID], // Use tier name from earlier fetch
+				Quantity: item.Quantity,
+				Price:    item.Price,
+			}
+		}
+
+		// Create invoice request
+		invoiceReq := &client.CreateInvoiceRequest{
+			OrderID:      order.ID,
+			UserID:       userID,
+			Email:        req.Email,
+			CustomerName: req.CustomerName,
+			Amount:       grandTotal,
+			Description:  fmt.Sprintf("Tiket Event - Order #%s", order.ID[:8]),
+			Items:        invoiceItems,
+		}
+
+		// Call payment service
+		invoiceResult, err := s.paymentClient.CreateInvoice(ctx, invoiceReq)
+		if err != nil {
+			log.Printf("[ERROR] Failed to create invoice for order %s: %v", order.ID, err)
+
+			// CRITICAL: Rollback order creation - release inventory and delete order
+			log.Printf("[INFO] Rolling back order %s due to invoice creation failure", order.ID)
+
+			// Release the reservation (will restore inventory)
+			if rollbackErr := s.ReleaseReservation(context.Background(), order.ID, entity.OrderStatusCancelled); rollbackErr != nil {
+				log.Printf("[ERROR] Failed to rollback order %s: %v", order.ID, rollbackErr)
+			}
+
+			return nil, fmt.Errorf("failed to create payment invoice: %w", err)
+		}
+
+		// Add invoice URL to response
+		orderResp.InvoiceURL = &invoiceResult.InvoiceURL
+		log.Printf("[INFO] Invoice created for order %s: %s", order.ID, invoiceResult.InvoiceURL)
+	}
+
+	// Step 10: Return response
+	return orderResp, nil
 }
 
 // ReleaseReservation releases a reservation and returns inventory

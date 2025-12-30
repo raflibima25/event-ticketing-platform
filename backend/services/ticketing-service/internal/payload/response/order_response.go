@@ -19,6 +19,7 @@ type OrderResponse struct {
 	Status               string              `json:"status"`
 	PaymentID            *string             `json:"payment_id,omitempty"`
 	PaymentMethod        *string             `json:"payment_method,omitempty"`
+	InvoiceURL           *string             `json:"invoice_url,omitempty"`
 	ReservationExpiresAt *time.Time          `json:"reservation_expires_at,omitempty"`
 	CreatedAt            time.Time           `json:"created_at"`
 	UpdatedAt            time.Time           `json:"updated_at"`

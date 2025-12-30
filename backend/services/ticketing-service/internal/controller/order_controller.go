@@ -52,6 +52,24 @@ func (c *OrderController) CreateOrder(ctx *gin.Context) {
 		return
 	}
 
+	// Get email from JWT context if not provided in request
+	if req.Email == "" {
+		if email, exists := ctx.Get("email"); exists && email != "" {
+			req.Email = email.(string)
+		}
+	}
+
+	// Use full name from JWT if not provided in request
+	if req.CustomerName == "" {
+		if name, exists := ctx.Get("name"); exists && name != "" {
+			req.CustomerName = name.(string)
+		}
+		// Fallback to "Customer" if still empty
+		if req.CustomerName == "" {
+			req.CustomerName = "Customer"
+		}
+	}
+
 	// Create reservation
 	order, err := c.reservationService.CreateReservation(ctx.Request.Context(), userID.(string), &req)
 	if err != nil {

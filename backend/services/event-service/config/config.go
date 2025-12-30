@@ -26,7 +26,7 @@ type DatabaseConfig struct {
 // Load loads configuration from environment variables
 func Load() *Config {
 	return &Config{
-		Port: getEnv("PORT", "8082"),
+		Port: getEnv("EVENT_SERVER_PORT", "8082"),
 		Database: DatabaseConfig{
 			Host:     getEnv("DB_HOST", "localhost"),
 			Port:     getEnv("DB_PORT", "5432"),

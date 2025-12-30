@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log"
+	"net"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -10,13 +11,18 @@ import (
 	"time"
 
 	"github.com/joho/godotenv"
+	pb "github.com/raflibima25/event-ticketing-platform/backend/pb/ticketing"
 	"github.com/raflibima25/event-ticketing-platform/backend/services/ticketing-service/config"
+	"github.com/raflibima25/event-ticketing-platform/backend/services/ticketing-service/internal/client"
 	"github.com/raflibima25/event-ticketing-platform/backend/services/ticketing-service/internal/controller"
+	grpcHandler "github.com/raflibima25/event-ticketing-platform/backend/services/ticketing-service/internal/grpc"
 	"github.com/raflibima25/event-ticketing-platform/backend/services/ticketing-service/internal/repository"
 	"github.com/raflibima25/event-ticketing-platform/backend/services/ticketing-service/internal/router"
 	"github.com/raflibima25/event-ticketing-platform/backend/services/ticketing-service/internal/service"
 	"github.com/raflibima25/event-ticketing-platform/backend/services/ticketing-service/internal/utility"
 	"github.com/raflibima25/event-ticketing-platform/backend/services/ticketing-service/internal/worker"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 )
 
 func main() {
@@ -83,6 +89,17 @@ func main() {
 
 	log.Println("Repositories initialized")
 
+	// Initialize payment gRPC client
+	paymentClient, err := client.NewPaymentClient(cfg.PaymentService.GRPCAddress)
+	if err != nil {
+		log.Printf("⚠️  Warning: Failed to connect to Payment Service: %v", err)
+		log.Println("⚠️  Invoice creation will not work. Ensure Payment Service is running.")
+		paymentClient = nil
+	}
+	if paymentClient != nil {
+		defer paymentClient.Close()
+	}
+
 	// Initialize services with dependency injection
 	ticketService := service.NewTicketService(
 		ticketRepo,
@@ -95,6 +112,7 @@ func main() {
 		orderItemRepo,
 		ticketTierRepo,
 		redisClient,
+		paymentClient,
 		cfg.Reservation.Timeout,
 	)
 
@@ -133,6 +151,14 @@ func main() {
 
 	log.Println("Router configured")
 
+	// Initialize gRPC server
+	grpcServer := grpc.NewServer()
+	ticketingGRPCServer := grpcHandler.NewTicketingGRPCServer(confirmationService)
+	pb.RegisterTicketingServiceServer(grpcServer, ticketingGRPCServer)
+	reflection.Register(grpcServer)
+
+	log.Println("gRPC server initialized")
+
 	// Start background worker for reservation cleanup
 	cleanupWorker := worker.NewReservationCleanupWorker(
 		reservationService,
@@ -154,11 +180,23 @@ func main() {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 
-	// Run server in goroutine
+	// Run HTTP server in goroutine
 	go func() {
-		log.Printf("Ticketing Service is running on http://localhost%s", serverAddr)
+		log.Printf("🚀 HTTP Server running on port %s", cfg.Port)
 		if err := r.Run(serverAddr); err != nil {
-			log.Fatalf("Failed to start server: %v", err)
+			log.Fatalf("Failed to start HTTP server: %v", err)
+		}
+	}()
+
+	// Run gRPC server in goroutine
+	go func() {
+		listener, err := net.Listen("tcp", ":"+cfg.GRPCPort)
+		if err != nil {
+			log.Fatalf("Failed to listen on gRPC port: %v", err)
+		}
+		log.Printf("🚀 gRPC Server running on port %s", cfg.GRPCPort)
+		if err := grpcServer.Serve(listener); err != nil {
+			log.Fatalf("Failed to start gRPC server: %v", err)
 		}
 	}()
 

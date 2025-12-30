@@ -2,9 +2,11 @@ package request
 
 // CreateOrderRequest represents create order from cart or direct purchase
 type CreateOrderRequest struct {
-	EventID      string      `json:"event_id" binding:"required,uuid"`
-	Items        []OrderItem `json:"items" binding:"required,min=1,dive"`
-	PaymentMethod string     `json:"payment_method,omitempty"` // Will be set later before payment
+	EventID       string      `json:"event_id" binding:"required,uuid"`
+	Items         []OrderItem `json:"items" binding:"required,min=1,dive"`
+	Email         string      `json:"email,omitempty"`          // Optional - will use user profile if not provided
+	CustomerName  string      `json:"customer_name,omitempty"`  // Optional - will use user profile if not provided
+	PaymentMethod string      `json:"payment_method,omitempty"` // Will be set later before payment
 }
 
 // OrderItem represents an item to order

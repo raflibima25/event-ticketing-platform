@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package ticketing;
+
+option go_package = "github.com/raflibima25/event-ticketing-platform/backend/pb/ticketing;ticketing";
+
+// TicketingService handles ticket-related operations
+service TicketingService {
+  // ConfirmPayment confirms payment and generates tickets
+  rpc ConfirmPayment(ConfirmPaymentRequest) returns (ConfirmPaymentResponse);
+}
+
+// ConfirmPaymentRequest represents payment confirmation request
+message ConfirmPaymentRequest {
+  string order_id = 1;
+  string payment_id = 2;
+  string payment_method = 3;
+  double amount = 4;
+}
+
+// ConfirmPaymentResponse represents payment confirmation response
+message ConfirmPaymentResponse {
+  bool success = 1;
+  string message = 2;
+  int32 tickets_generated = 3;
+}
