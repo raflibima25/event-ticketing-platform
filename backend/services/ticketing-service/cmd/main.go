@@ -57,7 +57,7 @@ func main() {
 
 	// Run migrations
 	migrationsPath := "../../migrations"
-	if err := utility.RunMigrations(db, migrationsPath); err != nil {
+	if err := utility.RunMigrations(db.DB, migrationsPath); err != nil {
 		log.Printf("⚠️  Migration error: %v", err)
 		log.Println("⚠️  Continuing without migrations (ensure database schema is correct)")
 	}

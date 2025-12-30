@@ -1,10 +1,10 @@
 package utility
 
 import (
-	"database/sql"
 	"fmt"
 	"time"
 
+	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 )
 
@@ -16,11 +16,11 @@ type DatabaseConfig struct {
 	ConnMaxLifetime time.Duration
 }
 
-// NewDatabase creates a new database connection with connection pooling
-func NewDatabase(config DatabaseConfig) (*sql.DB, error) {
-	db, err := sql.Open("postgres", config.URL)
+// NewDatabase creates a new sqlx database connection with connection pooling
+func NewDatabase(config DatabaseConfig) (*sqlx.DB, error) {
+	db, err := sqlx.Connect("postgres", config.URL)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open database: %w", err)
+		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
 
 	// Configure connection pool

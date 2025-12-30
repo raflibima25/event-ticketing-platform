@@ -4,14 +4,14 @@ import "time"
 
 // OrderItem represents an item in an order
 type OrderItem struct {
-	ID           string
-	OrderID      string
-	TicketTierID string
-	Quantity     int
-	Price        float64 // Price per ticket at time of purchase
-	Subtotal     float64 // Price * Quantity
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
+	ID           string    `db:"id"`
+	OrderID      string    `db:"order_id"`
+	TicketTierID string    `db:"ticket_tier_id"`
+	Quantity     int       `db:"quantity"`
+	Price        float64   `db:"price"` // Price per ticket at time of purchase
+	Subtotal     float64   `db:"subtotal"` // Price * Quantity
+	CreatedAt    time.Time `db:"created_at"`
+	UpdatedAt    time.Time `db:"updated_at"`
 }
 
 // CalculateSubtotal calculates subtotal for the order item

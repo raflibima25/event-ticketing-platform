@@ -2,48 +2,34 @@ package repository
 
 import (
 	"context"
-	"database/sql"
 	"errors"
-	"fmt"
-	"time"
+
+	"github.com/jmoiron/sqlx"
+	"github.com/raflibima25/event-ticketing-platform/backend/services/ticketing-service/internal/payload/entity"
 )
 
 var (
 	ErrEventNotFound = errors.New("event not found")
 )
 
-// Event represents event data from database
-type Event struct {
-	ID          string
-	Name        string
-	Description string
-	Location    string
-	StartDate   time.Time
-	EndDate     time.Time
-	CategoryID  string
-	OrganizerID string
-	Status      string
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
-}
-
 // EventRepository defines interface for event data operations
 type EventRepository interface {
-	GetByID(ctx context.Context, id string) (*Event, error)
+	GetByID(ctx context.Context, id string) (*entity.Event, error)
 }
 
 // eventRepository implements EventRepository interface
 type eventRepository struct {
-	db *sql.DB
+	db *sqlx.DB
 }
 
 // NewEventRepository creates new event repository instance
-func NewEventRepository(db *sql.DB) EventRepository {
+func NewEventRepository(db *sqlx.DB) EventRepository {
 	return &eventRepository{db: db}
 }
 
-// GetByID retrieves event by ID
-func (r *eventRepository) GetByID(ctx context.Context, id string) (*Event, error) {
+// GetByID retrieves event by ID using sqlx
+func (r *eventRepository) GetByID(ctx context.Context, id string) (*entity.Event, error) {
+	var event entity.Event
 	query := `
 		SELECT id, title, description,
 		       COALESCE(venue, location) as location,
@@ -53,28 +39,13 @@ func (r *eventRepository) GetByID(ctx context.Context, id string) (*Event, error
 		WHERE id = $1
 	`
 
-	event := &Event{}
-	err := r.db.QueryRowContext(ctx, query, id).Scan(
-		&event.ID,
-		&event.Name,
-		&event.Description,
-		&event.Location,
-		&event.StartDate,
-		&event.EndDate,
-		&event.CategoryID,
-		&event.OrganizerID,
-		&event.Status,
-		&event.CreatedAt,
-		&event.UpdatedAt,
-	)
-
-	if err == sql.ErrNoRows {
-		return nil, ErrEventNotFound
-	}
-
+	err := r.db.GetContext(ctx, &event, query, id)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get event: %w", err)
+		if err.Error() == "sql: no rows in result set" {
+			return nil, ErrEventNotFound
+		}
+		return nil, err
 	}
 
-	return event, nil
+	return &event, nil
 }

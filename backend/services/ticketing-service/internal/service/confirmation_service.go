@@ -141,7 +141,7 @@ func (s *confirmationService) sendTicketEmail(ctx context.Context, order *entity
 	if err != nil {
 		log.Printf("[ConfirmationService] Failed to get event details for %s: %v", order.EventID, err)
 		// Use fallback values if event not found
-		event = &repository.Event{
+		event = &entity.Event{
 			Name:      "Event",
 			Location:  "TBA",
 			StartDate: time.Now().Add(24 * time.Hour),
@@ -195,7 +195,7 @@ func (s *confirmationService) sendTicketEmail(ctx context.Context, order *entity
 	if err != nil {
 		log.Printf("[ConfirmationService] Failed to get user details for %s: %v", order.UserID, err)
 		// Use fallback values if user not found
-		user = &repository.User{
+		user = &entity.User{
 			Email:    "customer@example.com",
 			FullName: "Customer",
 		}

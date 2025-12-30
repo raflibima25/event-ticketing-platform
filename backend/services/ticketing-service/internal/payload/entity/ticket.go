@@ -4,19 +4,19 @@ import "time"
 
 // Ticket represents an e-ticket
 type Ticket struct {
-	ID           string
-	OrderID      string
-	OrderItemID  string
-	TicketTierID string
-	EventID      string
-	UserID       string
-	TicketNumber string // Unique ticket number (for display)
-	QRCode       string // Base64 encoded QR code
-	QRData       string // Data encoded in QR (for validation)
-	Status       string // valid, used, cancelled, expired
-	UsedAt       *time.Time
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
+	ID           string     `db:"id"`
+	OrderID      string     `db:"order_id"`
+	OrderItemID  string     `db:"order_item_id"`
+	TicketTierID string     `db:"ticket_tier_id"`
+	EventID      string     `db:"event_id"`
+	UserID       string     `db:"user_id"`
+	TicketNumber string     `db:"ticket_number"` // Unique ticket number (for display)
+	QRCode       string     `db:"qr_code"` // Base64 encoded QR code
+	QRData       string     `db:"qr_data"` // Data encoded in QR (for validation)
+	Status       string     `db:"status"` // valid, used, cancelled, expired
+	UsedAt       *time.Time `db:"validated_at"`
+	CreatedAt    time.Time  `db:"created_at"`
+	UpdatedAt    time.Time  `db:"updated_at"`
 }
 
 // Ticket status constants

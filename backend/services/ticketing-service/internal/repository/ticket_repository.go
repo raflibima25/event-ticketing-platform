@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jmoiron/sqlx"
 	"github.com/raflibima25/event-ticketing-platform/backend/services/ticketing-service/internal/payload/entity"
 )
 
@@ -28,11 +29,11 @@ type TicketRepository interface {
 
 // ticketRepository implements TicketRepository interface
 type ticketRepository struct {
-	db *sql.DB
+	db *sqlx.DB
 }
 
 // NewTicketRepository creates new ticket repository instance
-func NewTicketRepository(db *sql.DB) TicketRepository {
+func NewTicketRepository(db *sqlx.DB) TicketRepository {
 	return &ticketRepository{db: db}
 }
 
@@ -115,7 +116,7 @@ func (r *ticketRepository) CreateBatch(ctx context.Context, tx *sql.Tx, tickets 
 	return nil
 }
 
-// GetByID retrieves ticket by ID
+// GetByID retrieves ticket by ID using sqlx
 func (r *ticketRepository) GetByID(ctx context.Context, id string) (*entity.Ticket, error) {
 	query := `
 		SELECT id, order_id, order_item_id, ticket_tier_id, event_id, user_id,
@@ -125,34 +126,18 @@ func (r *ticketRepository) GetByID(ctx context.Context, id string) (*entity.Tick
 	`
 
 	ticket := &entity.Ticket{}
-	err := r.db.QueryRowContext(ctx, query, id).Scan(
-		&ticket.ID,
-		&ticket.OrderID,
-		&ticket.OrderItemID,
-		&ticket.TicketTierID,
-		&ticket.EventID,
-		&ticket.UserID,
-		&ticket.TicketNumber,
-		&ticket.QRCode,
-		&ticket.QRData,
-		&ticket.Status,
-		&ticket.UsedAt,
-		&ticket.CreatedAt,
-		&ticket.UpdatedAt,
-	)
-
-	if err == sql.ErrNoRows {
-		return nil, ErrTicketNotFound
-	}
-
+	err := r.db.GetContext(ctx, ticket, query, id)
 	if err != nil {
+		if err.Error() == "sql: no rows in result set" {
+			return nil, ErrTicketNotFound
+		}
 		return nil, fmt.Errorf("failed to get ticket: %w", err)
 	}
 
 	return ticket, nil
 }
 
-// GetByOrderID retrieves all tickets for an order
+// GetByOrderID retrieves all tickets for an order using sqlx
 func (r *ticketRepository) GetByOrderID(ctx context.Context, orderID string) ([]entity.Ticket, error) {
 	query := `
 		SELECT id, order_id, order_item_id, ticket_tier_id, event_id, user_id,
@@ -162,40 +147,16 @@ func (r *ticketRepository) GetByOrderID(ctx context.Context, orderID string) ([]
 		ORDER BY created_at ASC
 	`
 
-	rows, err := r.db.QueryContext(ctx, query, orderID)
+	tickets := []entity.Ticket{}
+	err := r.db.SelectContext(ctx, &tickets, query, orderID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get tickets by order: %w", err)
-	}
-	defer rows.Close()
-
-	tickets := []entity.Ticket{}
-	for rows.Next() {
-		var ticket entity.Ticket
-		err := rows.Scan(
-			&ticket.ID,
-			&ticket.OrderID,
-			&ticket.OrderItemID,
-			&ticket.TicketTierID,
-			&ticket.EventID,
-			&ticket.UserID,
-			&ticket.TicketNumber,
-			&ticket.QRCode,
-			&ticket.QRData,
-			&ticket.Status,
-			&ticket.UsedAt,
-			&ticket.CreatedAt,
-			&ticket.UpdatedAt,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to scan ticket: %w", err)
-		}
-		tickets = append(tickets, ticket)
 	}
 
 	return tickets, nil
 }
 
-// GetByUserID retrieves all tickets for a user
+// GetByUserID retrieves all tickets for a user using sqlx
 func (r *ticketRepository) GetByUserID(ctx context.Context, userID string) ([]entity.Ticket, error) {
 	query := `
 		SELECT id, order_id, order_item_id, ticket_tier_id, event_id, user_id,
@@ -205,40 +166,16 @@ func (r *ticketRepository) GetByUserID(ctx context.Context, userID string) ([]en
 		ORDER BY created_at DESC
 	`
 
-	rows, err := r.db.QueryContext(ctx, query, userID)
+	tickets := []entity.Ticket{}
+	err := r.db.SelectContext(ctx, &tickets, query, userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user tickets: %w", err)
-	}
-	defer rows.Close()
-
-	tickets := []entity.Ticket{}
-	for rows.Next() {
-		var ticket entity.Ticket
-		err := rows.Scan(
-			&ticket.ID,
-			&ticket.OrderID,
-			&ticket.OrderItemID,
-			&ticket.TicketTierID,
-			&ticket.EventID,
-			&ticket.UserID,
-			&ticket.TicketNumber,
-			&ticket.QRCode,
-			&ticket.QRData,
-			&ticket.Status,
-			&ticket.UsedAt,
-			&ticket.CreatedAt,
-			&ticket.UpdatedAt,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to scan ticket: %w", err)
-		}
-		tickets = append(tickets, ticket)
 	}
 
 	return tickets, nil
 }
 
-// Update updates ticket information
+// Update updates ticket information using sqlx
 func (r *ticketRepository) Update(ctx context.Context, ticket *entity.Ticket) error {
 	query := `
 		UPDATE tickets
@@ -270,7 +207,7 @@ func (r *ticketRepository) Update(ctx context.Context, ticket *entity.Ticket) er
 	return nil
 }
 
-// MarkAsUsed marks a ticket as used (scanned at event entrance)
+// MarkAsUsed marks a ticket as used (scanned at event entrance) using sqlx
 func (r *ticketRepository) MarkAsUsed(ctx context.Context, ticketID string) error {
 	query := `
 		UPDATE tickets

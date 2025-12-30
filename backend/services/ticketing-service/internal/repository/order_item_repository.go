@@ -3,10 +3,16 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/jmoiron/sqlx"
 	"github.com/raflibima25/event-ticketing-platform/backend/services/ticketing-service/internal/payload/entity"
+)
+
+var (
+	ErrOrderItemNotFound = errors.New("order item not found")
 )
 
 // OrderItemRepository defines interface for order item data operations
@@ -19,11 +25,11 @@ type OrderItemRepository interface {
 
 // orderItemRepository implements OrderItemRepository interface
 type orderItemRepository struct {
-	db *sql.DB
+	db *sqlx.DB
 }
 
 // NewOrderItemRepository creates new order item repository instance
-func NewOrderItemRepository(db *sql.DB) OrderItemRepository {
+func NewOrderItemRepository(db *sqlx.DB) OrderItemRepository {
 	return &orderItemRepository{db: db}
 }
 
@@ -90,7 +96,7 @@ func (r *orderItemRepository) CreateBatch(ctx context.Context, tx *sql.Tx, items
 	return nil
 }
 
-// GetByOrderID retrieves all items for an order
+// GetByOrderID retrieves all items for an order using sqlx
 func (r *orderItemRepository) GetByOrderID(ctx context.Context, orderID string) ([]entity.OrderItem, error) {
 	query := `
 		SELECT id, order_id, ticket_tier_id, quantity, price, subtotal, created_at, updated_at
@@ -99,35 +105,16 @@ func (r *orderItemRepository) GetByOrderID(ctx context.Context, orderID string) 
 		ORDER BY created_at ASC
 	`
 
-	rows, err := r.db.QueryContext(ctx, query, orderID)
+	items := []entity.OrderItem{}
+	err := r.db.SelectContext(ctx, &items, query, orderID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get order items: %w", err)
-	}
-	defer rows.Close()
-
-	items := []entity.OrderItem{}
-	for rows.Next() {
-		var item entity.OrderItem
-		err := rows.Scan(
-			&item.ID,
-			&item.OrderID,
-			&item.TicketTierID,
-			&item.Quantity,
-			&item.Price,
-			&item.Subtotal,
-			&item.CreatedAt,
-			&item.UpdatedAt,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to scan order item: %w", err)
-		}
-		items = append(items, item)
 	}
 
 	return items, nil
 }
 
-// GetByID retrieves order item by ID
+// GetByID retrieves order item by ID using sqlx
 func (r *orderItemRepository) GetByID(ctx context.Context, id string) (*entity.OrderItem, error) {
 	query := `
 		SELECT id, order_id, ticket_tier_id, quantity, price, subtotal, created_at, updated_at
@@ -136,22 +123,11 @@ func (r *orderItemRepository) GetByID(ctx context.Context, id string) (*entity.O
 	`
 
 	item := &entity.OrderItem{}
-	err := r.db.QueryRowContext(ctx, query, id).Scan(
-		&item.ID,
-		&item.OrderID,
-		&item.TicketTierID,
-		&item.Quantity,
-		&item.Price,
-		&item.Subtotal,
-		&item.CreatedAt,
-		&item.UpdatedAt,
-	)
-
-	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("order item not found")
-	}
-
+	err := r.db.GetContext(ctx, item, query, id)
 	if err != nil {
+		if err.Error() == "sql: no rows in result set" {
+			return nil, ErrOrderItemNotFound
+		}
 		return nil, fmt.Errorf("failed to get order item: %w", err)
 	}
 

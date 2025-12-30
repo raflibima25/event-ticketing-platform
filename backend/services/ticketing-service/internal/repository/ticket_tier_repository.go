@@ -5,6 +5,9 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+
+	"github.com/jmoiron/sqlx"
+	"github.com/raflibima25/event-ticketing-platform/backend/services/ticketing-service/internal/payload/entity"
 )
 
 var (
@@ -12,22 +15,11 @@ var (
 	ErrInsufficientQuota  = errors.New("insufficient ticket quota")
 )
 
-// TicketTier represents ticket tier data (read-only from event service)
-type TicketTier struct {
-	ID          string
-	EventID     string
-	Name        string
-	Price       float64
-	Quota       int
-	SoldCount   int
-	MaxPerOrder int
-}
-
 // TicketTierRepository defines interface for ticket tier operations
 type TicketTierRepository interface {
-	GetByID(ctx context.Context, id string) (*TicketTier, error)
-	GetByIDWithLock(ctx context.Context, tx *sql.Tx, id string) (*TicketTier, error)
-	GetByEventID(ctx context.Context, eventID string) ([]TicketTier, error)
+	GetByID(ctx context.Context, id string) (*entity.TicketTier, error)
+	GetByIDWithLock(ctx context.Context, tx *sql.Tx, id string) (*entity.TicketTier, error)
+	GetByEventID(ctx context.Context, eventID string) ([]entity.TicketTier, error)
 	CheckAvailability(ctx context.Context, tierID string, quantity int) (bool, error)
 	UpdateSoldCount(ctx context.Context, tx *sql.Tx, tierID string, quantity int) error
 	ReleaseSoldCount(ctx context.Context, tx *sql.Tx, tierID string, quantity int) error
@@ -35,48 +27,39 @@ type TicketTierRepository interface {
 
 // ticketTierRepository implements TicketTierRepository interface
 type ticketTierRepository struct {
-	db *sql.DB
+	db *sqlx.DB
 }
 
 // NewTicketTierRepository creates new ticket tier repository instance
-func NewTicketTierRepository(db *sql.DB) TicketTierRepository {
+func NewTicketTierRepository(db *sqlx.DB) TicketTierRepository {
 	return &ticketTierRepository{db: db}
 }
 
-// GetByID retrieves ticket tier by ID
-func (r *ticketTierRepository) GetByID(ctx context.Context, id string) (*TicketTier, error) {
+// GetByID retrieves ticket tier by ID using sqlx
+func (r *ticketTierRepository) GetByID(ctx context.Context, id string) (*entity.TicketTier, error) {
+	var tier entity.TicketTier
 	query := `
 		SELECT id, event_id, name, price, quota, sold_count, max_per_order
 		FROM ticket_tiers
 		WHERE id = $1
 	`
 
-	tier := &TicketTier{}
-	err := r.db.QueryRowContext(ctx, query, id).Scan(
-		&tier.ID,
-		&tier.EventID,
-		&tier.Name,
-		&tier.Price,
-		&tier.Quota,
-		&tier.SoldCount,
-		&tier.MaxPerOrder,
-	)
-
-	if err == sql.ErrNoRows {
-		return nil, ErrTicketTierNotFound
-	}
-
+	err := r.db.GetContext(ctx, &tier, query, id)
 	if err != nil {
+		if err.Error() == "sql: no rows in result set" {
+			return nil, ErrTicketTierNotFound
+		}
 		return nil, fmt.Errorf("failed to get ticket tier: %w", err)
 	}
 
-	return tier, nil
+	return &tier, nil
 }
 
 // GetByIDWithLock retrieves ticket tier with row-level lock (SELECT FOR UPDATE)
-// CRITICAL: Prevents race conditions in concurrent reservations
+// CRITICAL PATH: Uses raw SQL for explicit locking control
+// PREVENTS RACE CONDITIONS in concurrent reservations
 // MUST be called within a transaction
-func (r *ticketTierRepository) GetByIDWithLock(ctx context.Context, tx *sql.Tx, id string) (*TicketTier, error) {
+func (r *ticketTierRepository) GetByIDWithLock(ctx context.Context, tx *sql.Tx, id string) (*entity.TicketTier, error) {
 	query := `
 		SELECT id, event_id, name, price, quota, sold_count, max_per_order
 		FROM ticket_tiers
@@ -84,7 +67,7 @@ func (r *ticketTierRepository) GetByIDWithLock(ctx context.Context, tx *sql.Tx, 
 		FOR UPDATE
 	`
 
-	tier := &TicketTier{}
+	tier := &entity.TicketTier{}
 	err := tx.QueryRowContext(ctx, query, id).Scan(
 		&tier.ID,
 		&tier.EventID,
@@ -106,8 +89,8 @@ func (r *ticketTierRepository) GetByIDWithLock(ctx context.Context, tx *sql.Tx, 
 	return tier, nil
 }
 
-// GetByEventID retrieves all ticket tiers for an event
-func (r *ticketTierRepository) GetByEventID(ctx context.Context, eventID string) ([]TicketTier, error) {
+// GetByEventID retrieves all ticket tiers for an event using sqlx
+func (r *ticketTierRepository) GetByEventID(ctx context.Context, eventID string) ([]entity.TicketTier, error) {
 	query := `
 		SELECT id, event_id, name, price, quota, sold_count, max_per_order
 		FROM ticket_tiers
@@ -115,49 +98,29 @@ func (r *ticketTierRepository) GetByEventID(ctx context.Context, eventID string)
 		ORDER BY price ASC
 	`
 
-	rows, err := r.db.QueryContext(ctx, query, eventID)
+	tiers := []entity.TicketTier{}
+	err := r.db.SelectContext(ctx, &tiers, query, eventID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get ticket tiers: %w", err)
-	}
-	defer rows.Close()
-
-	tiers := []TicketTier{}
-	for rows.Next() {
-		var tier TicketTier
-		err := rows.Scan(
-			&tier.ID,
-			&tier.EventID,
-			&tier.Name,
-			&tier.Price,
-			&tier.Quota,
-			&tier.SoldCount,
-			&tier.MaxPerOrder,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to scan ticket tier: %w", err)
-		}
-		tiers = append(tiers, tier)
 	}
 
 	return tiers, nil
 }
 
-// CheckAvailability checks if requested quantity is available
+// CheckAvailability checks if requested quantity is available using sqlx
 func (r *ticketTierRepository) CheckAvailability(ctx context.Context, tierID string, quantity int) (bool, error) {
+	var available bool
 	query := `
 		SELECT (quota - sold_count) >= $1 as available
 		FROM ticket_tiers
 		WHERE id = $2
 	`
 
-	var available bool
-	err := r.db.QueryRowContext(ctx, query, quantity, tierID).Scan(&available)
-
-	if err == sql.ErrNoRows {
-		return false, ErrTicketTierNotFound
-	}
-
+	err := r.db.GetContext(ctx, &available, query, quantity, tierID)
 	if err != nil {
+		if err.Error() == "sql: no rows in result set" {
+			return false, ErrTicketTierNotFound
+		}
 		return false, fmt.Errorf("failed to check availability: %w", err)
 	}
 
@@ -165,7 +128,8 @@ func (r *ticketTierRepository) CheckAvailability(ctx context.Context, tierID str
 }
 
 // UpdateSoldCount increments sold count (for reservation/payment)
-// CRITICAL: Uses database constraint to prevent overselling
+// CRITICAL PATH: Uses raw SQL transaction for atomic operation
+// Database constraint prevents overselling: (sold_count + $1) <= quota
 // MUST be called within a transaction with row-level lock
 func (r *ticketTierRepository) UpdateSoldCount(ctx context.Context, tx *sql.Tx, tierID string, quantity int) error {
 	query := `
@@ -202,6 +166,7 @@ func (r *ticketTierRepository) UpdateSoldCount(ctx context.Context, tx *sql.Tx, 
 }
 
 // ReleaseSoldCount decrements sold count (for cancellation/expiration)
+// CRITICAL PATH: Uses raw SQL transaction for atomic operation
 // MUST be called within a transaction
 func (r *ticketTierRepository) ReleaseSoldCount(ctx context.Context, tx *sql.Tx, tierID string, quantity int) error {
 	query := `
