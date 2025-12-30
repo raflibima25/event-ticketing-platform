@@ -9,7 +9,7 @@ import (
 	"github.com/skip2/go-qrcode"
 )
 
-// GenerateQRCode generates a QR code as base64 encoded string
+// GenerateQRCode generates a QR code as base64 encoded string with data URI
 func GenerateQRCode(data string) (string, error) {
 	// Generate QR code with medium error correction level
 	qr, err := qrcode.New(data, qrcode.Medium)
@@ -23,9 +23,9 @@ func GenerateQRCode(data string) (string, error) {
 		return "", fmt.Errorf("failed to convert QR to PNG: %w", err)
 	}
 
-	// Encode to base64 for easy transmission
+	// Encode to base64 with data URI prefix for direct use in HTML
 	encoded := base64.StdEncoding.EncodeToString(pngBytes)
-	return encoded, nil
+	return fmt.Sprintf("data:image/png;base64,%s", encoded), nil
 }
 
 // GenerateTicketQRData creates the data string for ticket QR code

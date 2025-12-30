@@ -9,19 +9,25 @@ import (
 
 // Config holds application configuration
 type Config struct {
-	Port           string
-	GRPCPort       string
-	Database       DatabaseConfig
-	Redis          RedisConfig
-	JWTSecret      string
-	Reservation    ReservationConfig
-	PaymentService PaymentServiceConfig
-	AuthService    AuthServiceConfig
-	Environment    string
+	Port                string
+	GRPCPort            string
+	Database            DatabaseConfig
+	Redis               RedisConfig
+	JWTSecret           string
+	Reservation         ReservationConfig
+	PaymentService      PaymentServiceConfig
+	NotificationService NotificationServiceConfig
+	AuthService         AuthServiceConfig
+	Environment         string
 }
 
 // PaymentServiceConfig holds payment service gRPC configuration
 type PaymentServiceConfig struct {
+	GRPCAddress string
+}
+
+// NotificationServiceConfig holds notification service gRPC configuration
+type NotificationServiceConfig struct {
 	GRPCAddress string
 }
 
@@ -104,6 +110,9 @@ func Load() *Config {
 		},
 		PaymentService: PaymentServiceConfig{
 			GRPCAddress: getEnv("PAYMENT_SERVICE_GRPC_ADDR", "localhost:50054"),
+		},
+		NotificationService: NotificationServiceConfig{
+			GRPCAddress: getEnv("NOTIFICATION_SERVICE_GRPC_ADDR", "localhost:50055"),
 		},
 		Environment: getEnv("ENVIRONMENT", "development"),
 	}

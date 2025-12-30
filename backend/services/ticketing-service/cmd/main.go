@@ -86,19 +86,26 @@ func main() {
 	orderItemRepo := repository.NewOrderItemRepository(db)
 	ticketRepo := repository.NewTicketRepository(db)
 	ticketTierRepo := repository.NewTicketTierRepository(db)
+	eventRepo := repository.NewEventRepository(db)
+	userRepo := repository.NewUserRepository(db)
 
 	log.Println("Repositories initialized")
 
-	// Initialize payment gRPC client
+	// Initialize payment gRPC client (with auto-reconnect)
 	paymentClient, err := client.NewPaymentClient(cfg.PaymentService.GRPCAddress)
 	if err != nil {
-		log.Printf("⚠️  Warning: Failed to connect to Payment Service: %v", err)
-		log.Println("⚠️  Invoice creation will not work. Ensure Payment Service is running.")
-		paymentClient = nil
+		log.Fatalf("Failed to create payment client: %v", err)
 	}
-	if paymentClient != nil {
-		defer paymentClient.Close()
+	defer paymentClient.Close()
+	log.Println("✓ Payment client initialized (will auto-reconnect if service unavailable)")
+
+	// Initialize notification gRPC client (with auto-reconnect)
+	notificationClient, err := client.NewNotificationClient(cfg.NotificationService.GRPCAddress)
+	if err != nil {
+		log.Fatalf("Failed to create notification client: %v", err)
 	}
+	defer notificationClient.Close()
+	log.Println("✓ Notification client initialized (will auto-reconnect if service unavailable)")
 
 	// Initialize services with dependency injection
 	ticketService := service.NewTicketService(
@@ -124,7 +131,12 @@ func main() {
 
 	confirmationService := service.NewConfirmationService(
 		orderRepo,
+		orderItemRepo,
+		ticketTierRepo,
+		eventRepo,
+		userRepo,
 		ticketService,
+		notificationClient,
 	)
 
 	log.Println("Services initialized")

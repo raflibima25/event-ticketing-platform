@@ -1,4 +1,4 @@
-.PHONY: proto-payment proto-ticketing proto-all clean
+.PHONY: proto-payment proto-ticketing proto-notification proto-all clean
 
 proto-payment:
 	mkdir -p pb/payment
@@ -14,7 +14,14 @@ proto-ticketing:
 		--go-grpc_out=pb --go-grpc_opt=paths=source_relative \
 		proto/ticketing/ticketing.proto
 
-proto-all: proto-payment proto-ticketing
+proto-notification:
+	mkdir -p pb/notification
+	protoc --proto_path=proto \
+		--go_out=pb --go_opt=paths=source_relative \
+		--go-grpc_out=pb --go-grpc_opt=paths=source_relative \
+		proto/notification/notification.proto
+
+proto-all: proto-payment proto-ticketing proto-notification
 
 clean:
 	rm -rf pb

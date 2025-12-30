@@ -18,23 +18,20 @@ type PaymentClient struct {
 }
 
 // NewPaymentClient creates new payment gRPC client
+// Connection is lazy and will auto-reconnect if service is unavailable
 func NewPaymentClient(grpcURL string) (*PaymentClient, error) {
-	// Create gRPC connection
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	conn, err := grpc.DialContext(
-		ctx,
+	// Use grpc.NewClient for lazy connection with auto-reconnect
+	// No WithBlock() - this allows the client to connect lazily and reconnect automatically
+	conn, err := grpc.NewClient(
 		grpcURL,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithBlock(),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect to payment service: %w", err)
+		return nil, fmt.Errorf("failed to create payment client: %w", err)
 	}
 
 	client := pb.NewPaymentServiceClient(conn)
-	log.Printf("✅ Connected to Payment Service gRPC at %s", grpcURL)
+	log.Printf("[PaymentGRPC] Payment client initialized for %s (lazy connection with auto-reconnect)", grpcURL)
 
 	return &PaymentClient{
 		client: client,

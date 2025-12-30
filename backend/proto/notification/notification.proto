@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+package notification;
+
+option go_package = "github.com/raflibima25/event-ticketing-platform/backend/pb/notification;notification";
+
+// NotificationService handles email notifications
+service NotificationService {
+  // SendTicketEmail sends e-ticket to customer via email
+  rpc SendTicketEmail(SendTicketEmailRequest) returns (SendTicketEmailResponse);
+}
+
+// Ticket represents a single ticket for the email
+message Ticket {
+  string ticket_id = 1;
+  string qr_code = 2;
+  string tier_name = 3;
+  double price = 4;
+}
+
+// SendTicketEmailRequest represents request to send ticket email
+message SendTicketEmailRequest {
+  string order_id = 1;
+  string recipient_email = 2;
+  string recipient_name = 3;
+  string event_name = 4;
+  string event_location = 5;
+  string event_start_time = 6;
+  double total_amount = 7;
+  string payment_method = 8;
+  repeated Ticket tickets = 9;
+}
+
+// SendTicketEmailResponse represents response from sending ticket email
+message SendTicketEmailResponse {
+  bool success = 1;
+  string message = 2;
+  string email_id = 3;
+}
