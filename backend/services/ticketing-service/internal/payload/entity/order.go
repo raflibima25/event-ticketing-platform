@@ -4,20 +4,20 @@ import "time"
 
 // Order represents a ticket order
 type Order struct {
-	ID                   string
-	UserID               string
-	EventID              string
-	TotalAmount          float64
-	PlatformFee          float64
-	ServiceFee           float64
-	GrandTotal           float64
-	Status               string // reserved, paid, expired, cancelled, completed
-	PaymentID            *string
-	PaymentMethod        *string
-	ReservationExpiresAt *time.Time
-	CreatedAt            time.Time
-	UpdatedAt            time.Time
-	CompletedAt          *time.Time
+	ID                   string     `db:"id"`
+	UserID               string     `db:"user_id"`
+	EventID              string     `db:"event_id"`
+	TotalAmount          float64    `db:"total_amount"`
+	PlatformFee          float64    `db:"platform_fee"`
+	ServiceFee           float64    `db:"service_fee"`
+	GrandTotal           float64    `db:"grand_total"`
+	Status               string     `db:"status"` // reserved, paid, expired, cancelled, completed
+	PaymentID            *string    `db:"payment_id"`
+	PaymentMethod        *string    `db:"payment_method"`
+	ReservationExpiresAt *time.Time `db:"reservation_expires_at"`
+	CreatedAt            time.Time  `db:"created_at"`
+	UpdatedAt            time.Time  `db:"updated_at"`
+	CompletedAt          *time.Time `db:"completed_at"`
 }
 
 // Order status constants
