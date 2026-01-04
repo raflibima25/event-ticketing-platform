@@ -12,6 +12,7 @@ import (
 
 	"github.com/joho/godotenv"
 	pb "github.com/raflibima25/event-ticketing-platform/backend/pb/ticketing"
+	"github.com/raflibima25/event-ticketing-platform/backend/pkg/cache"
 	"github.com/raflibima25/event-ticketing-platform/backend/services/ticketing-service/config"
 	"github.com/raflibima25/event-ticketing-platform/backend/services/ticketing-service/internal/client"
 	"github.com/raflibima25/event-ticketing-platform/backend/services/ticketing-service/internal/controller"
@@ -64,20 +65,18 @@ func main() {
 
 	log.Println("Database migrations completed")
 
-	// Initialize Redis (optional - graceful degradation)
-	redisClient, err := utility.NewRedisClient(
-		cfg.Redis.Host,
-		cfg.Redis.Port,
-		cfg.Redis.Password,
-		cfg.Redis.DB,
-	)
+	// Initialize Redis with abstraction layer (auto-detects TCP or REST)
+	// Environment variable determines the implementation:
+	// - development: TCP client for local Docker Redis
+	// - production: REST client for Upstash Redis
+	redisClient, err := cache.NewRedisClient()
 	if err != nil {
 		log.Printf("⚠️  Warning: Failed to connect to Redis: %v", err)
 		log.Println("⚠️  Continuing without Redis (distributed locking disabled)")
 		log.Println("⚠️  NOTE: Do not run multiple instances without Redis!")
 		redisClient = nil
 	} else {
-		log.Println("✓ Redis connected successfully")
+		log.Printf("✓ Redis connected successfully (Environment: %s)", cfg.Environment)
 		defer redisClient.Close()
 	}
 

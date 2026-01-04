@@ -7,6 +7,7 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
+	"github.com/raflibima25/event-ticketing-platform/backend/pkg/cache"
 	"github.com/raflibima25/event-ticketing-platform/backend/services/auth-service/internal/payload/entity"
 	"github.com/raflibima25/event-ticketing-platform/backend/services/auth-service/internal/payload/request"
 	"github.com/raflibima25/event-ticketing-platform/backend/services/auth-service/internal/payload/response"
@@ -31,14 +32,16 @@ type AuthService interface {
 type authService struct {
 	userRepo   repository.UserRepository
 	jwtUtil    *utility.JWTUtil
+	cache      cache.RedisClient // For future features: token blacklist, rate limiting
 	bcryptCost int
 }
 
 // NewAuthService creates new auth service instance
-func NewAuthService(userRepo repository.UserRepository, jwtUtil *utility.JWTUtil, bcryptCost int) AuthService {
+func NewAuthService(userRepo repository.UserRepository, jwtUtil *utility.JWTUtil, redisClient cache.RedisClient, bcryptCost int) AuthService {
 	return &authService{
 		userRepo:   userRepo,
 		jwtUtil:    jwtUtil,
+		cache:      redisClient,
 		bcryptCost: bcryptCost,
 	}
 }

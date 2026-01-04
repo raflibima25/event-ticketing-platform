@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/joho/godotenv"
+	"github.com/raflibima25/event-ticketing-platform/backend/pkg/cache"
 	"github.com/raflibima25/event-ticketing-platform/backend/services/event-service/config"
 	"github.com/raflibima25/event-ticketing-platform/backend/services/event-service/internal/controller"
 	"github.com/raflibima25/event-ticketing-platform/backend/services/event-service/internal/repository"
@@ -48,14 +49,25 @@ func main() {
 		log.Println("⚠️  Continuing without migrations (ensure database schema is correct)")
 	}
 
+	// Initialize Redis with abstraction layer (auto-detects TCP or REST)
+	redisClient, err := cache.NewRedisClient()
+	if err != nil {
+		log.Printf("⚠️  Warning: Failed to connect to Redis: %v", err)
+		log.Println("⚠️  Continuing without Redis (caching disabled)")
+		redisClient = nil
+	} else {
+		log.Printf("✓ Redis connected successfully (Environment: %s)", cfg.Environment)
+		defer redisClient.Close()
+	}
+
 	// Initialize Repository Layer
 	eventRepo := repository.NewEventRepository(db)
 	ticketTierRepo := repository.NewTicketTierRepository(db)
 
 	log.Println("Repository layer initialized")
 
-	// Initialize Service Layer
-	eventService := service.NewEventService(eventRepo, ticketTierRepo)
+	// Initialize Service Layer with Redis caching
+	eventService := service.NewEventService(eventRepo, ticketTierRepo, redisClient)
 
 	log.Println("Service layer initialized")
 

@@ -2,9 +2,12 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
+	"github.com/raflibima25/event-ticketing-platform/backend/pkg/cache"
 	"github.com/raflibima25/event-ticketing-platform/backend/services/event-service/internal/payload/entity"
 	"github.com/raflibima25/event-ticketing-platform/backend/services/event-service/internal/payload/request"
 	"github.com/raflibima25/event-ticketing-platform/backend/services/event-service/internal/payload/response"
@@ -19,6 +22,13 @@ var (
 	ErrInvalidDateRange    = errors.New("end date must be after start date")
 	ErrCannotUpdateSlug    = errors.New("slug cannot be updated")
 	ErrQuotaBelowSoldCount = errors.New("quota cannot be less than sold count")
+)
+
+// Cache TTL constants
+const (
+	cacheEventDetailTTL    = 5 * time.Minute  // Event detail cache TTL
+	cacheTicketTiersTTL    = 30 * time.Second // Ticket tiers cache TTL (shorter because quota changes)
+	cacheEventListingTTL   = 5 * time.Minute  // Event listing cache TTL
 )
 
 // EventService defines interface for event business logic
@@ -44,16 +54,19 @@ type EventService interface {
 type eventService struct {
 	eventRepo      repository.EventRepository
 	ticketTierRepo repository.TicketTierRepository
+	cache          cache.RedisClient
 }
 
 // NewEventService creates new event service instance
 func NewEventService(
 	eventRepo repository.EventRepository,
 	ticketTierRepo repository.TicketTierRepository,
+	redisClient cache.RedisClient,
 ) EventService {
 	return &eventService{
 		eventRepo:      eventRepo,
 		ticketTierRepo: ticketTierRepo,
+		cache:          redisClient,
 	}
 }
 
@@ -99,8 +112,23 @@ func (s *eventService) CreateEvent(ctx context.Context, organizerID string, req 
 	return response.ToEventResponse(event, nil), nil
 }
 
-// GetEventByID retrieves event by ID
+// GetEventByID retrieves event by ID with caching
 func (s *eventService) GetEventByID(ctx context.Context, id string) (*response.EventResponse, error) {
+	cacheKey := fmt.Sprintf("event:id:%s", id)
+
+	// Try to get from cache first
+	if s.cache != nil {
+		cached, err := s.cache.Get(ctx, cacheKey)
+		if err == nil && cached != "" {
+			var eventResp response.EventResponse
+			if err := json.Unmarshal([]byte(cached), &eventResp); err == nil {
+				return &eventResp, nil
+			}
+			// If unmarshal fails, continue to database
+		}
+	}
+
+	// Cache miss or error - get from database
 	event, err := s.eventRepo.GetByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, repository.ErrEventNotFound) {
@@ -115,11 +143,34 @@ func (s *eventService) GetEventByID(ctx context.Context, id string) (*response.E
 		return nil, fmt.Errorf("failed to get ticket tiers: %w", err)
 	}
 
-	return response.ToEventResponse(event, tiers), nil
+	eventResp := response.ToEventResponse(event, tiers)
+
+	// Store in cache for next time
+	if s.cache != nil {
+		if data, err := json.Marshal(eventResp); err == nil {
+			s.cache.Set(ctx, cacheKey, string(data), cacheEventDetailTTL)
+		}
+	}
+
+	return eventResp, nil
 }
 
-// GetEventBySlug retrieves event by slug
+// GetEventBySlug retrieves event by slug with caching
 func (s *eventService) GetEventBySlug(ctx context.Context, slug string) (*response.EventResponse, error) {
+	cacheKey := fmt.Sprintf("event:slug:%s", slug)
+
+	// Try to get from cache first
+	if s.cache != nil {
+		cached, err := s.cache.Get(ctx, cacheKey)
+		if err == nil && cached != "" {
+			var eventResp response.EventResponse
+			if err := json.Unmarshal([]byte(cached), &eventResp); err == nil {
+				return &eventResp, nil
+			}
+		}
+	}
+
+	// Cache miss - get from database
 	event, err := s.eventRepo.GetBySlug(ctx, slug)
 	if err != nil {
 		if errors.Is(err, repository.ErrEventNotFound) {
@@ -134,7 +185,16 @@ func (s *eventService) GetEventBySlug(ctx context.Context, slug string) (*respon
 		return nil, fmt.Errorf("failed to get ticket tiers: %w", err)
 	}
 
-	return response.ToEventResponse(event, tiers), nil
+	eventResp := response.ToEventResponse(event, tiers)
+
+	// Store in cache
+	if s.cache != nil {
+		if data, err := json.Marshal(eventResp); err == nil {
+			s.cache.Set(ctx, cacheKey, string(data), cacheEventDetailTTL)
+		}
+	}
+
+	return eventResp, nil
 }
 
 // ListEvents retrieves events with filters and pagination
@@ -238,6 +298,12 @@ func (s *eventService) UpdateEvent(ctx context.Context, organizerID string, even
 		return nil, fmt.Errorf("failed to update event: %w", err)
 	}
 
+	// Invalidate cache (both ID and slug keys)
+	if s.cache != nil {
+		s.cache.Del(ctx, fmt.Sprintf("event:id:%s", eventID))
+		s.cache.Del(ctx, fmt.Sprintf("event:slug:%s", event.Slug))
+	}
+
 	// Get ticket tiers
 	tiers, err := s.ticketTierRepo.GetByEventID(ctx, eventID)
 	if err != nil {
@@ -269,6 +335,12 @@ func (s *eventService) DeleteEvent(ctx context.Context, organizerID string, even
 			return ErrEventNotFound
 		}
 		return fmt.Errorf("failed to delete event: %w", err)
+	}
+
+	// Invalidate cache
+	if s.cache != nil {
+		s.cache.Del(ctx, fmt.Sprintf("event:id:%s", eventID))
+		s.cache.Del(ctx, fmt.Sprintf("event:slug:%s", event.Slug))
 	}
 
 	return nil

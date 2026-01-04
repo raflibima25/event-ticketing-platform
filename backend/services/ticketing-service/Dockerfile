@@ -1,4 +1,4 @@
-FROM golang:1.21-alpine AS builder
+FROM golang:1.25-alpine AS builder
 
 WORKDIR /app
 
@@ -10,7 +10,7 @@ RUN go mod download
 COPY . .
 
 # Build the service from cmd/main.go
-RUN CGO_ENABLED=0 GOOS=linux go build -o /ticketing-service ./backend/services/ticketing-service/cmd
+RUN CGO_ENABLED=0 GOOS=linux go build -o /ticketing-service ./services/ticketing-service/cmd
 
 FROM alpine:latest
 
@@ -20,6 +20,6 @@ WORKDIR /root/
 
 COPY --from=builder /ticketing-service .
 
-EXPOSE 8081
+EXPOSE 8083
 
 CMD ["./ticketing-service"]

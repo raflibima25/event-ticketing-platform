@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/joho/godotenv"
+	"github.com/raflibima25/event-ticketing-platform/backend/pkg/cache"
 	"github.com/raflibima25/event-ticketing-platform/backend/services/auth-service/config"
 	"github.com/raflibima25/event-ticketing-platform/backend/services/auth-service/internal/controller"
 	"github.com/raflibima25/event-ticketing-platform/backend/services/auth-service/internal/repository"
@@ -48,6 +49,18 @@ func main() {
 		log.Println("⚠️  Continuing without migrations (ensure database schema is correct)")
 	}
 
+	// Initialize Redis with abstraction layer (auto-detects TCP or REST)
+	// Used for future features: token blacklist, rate limiting, session cache
+	redisClient, err := cache.NewRedisClient()
+	if err != nil {
+		log.Printf("⚠️  Warning: Failed to connect to Redis: %v", err)
+		log.Println("⚠️  Continuing without Redis (advanced features disabled)")
+		redisClient = nil
+	} else {
+		log.Printf("✓ Redis connected successfully (Environment: %s)", cfg.Environment)
+		defer redisClient.Close()
+	}
+
 	// Initialize JWT utility
 	jwtUtil, err := utility.NewJWTUtil(cfg.JWTSecret, cfg.JWTExpiry)
 	if err != nil {
@@ -63,7 +76,7 @@ func main() {
 	log.Println("✓ Repository layer initialized")
 
 	// 2. Initialize Service Layer (Business Logic)
-	authService := service.NewAuthService(userRepo, jwtUtil, cfg.BcryptCost)
+	authService := service.NewAuthService(userRepo, jwtUtil, redisClient, cfg.BcryptCost)
 	log.Println("✓ Service layer initialized")
 
 	// 3. Initialize Controller Layer (HTTP Handlers)

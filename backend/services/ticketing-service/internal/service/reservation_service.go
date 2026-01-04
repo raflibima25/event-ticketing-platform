@@ -7,12 +7,12 @@ import (
 	"log"
 	"time"
 
+	"github.com/raflibima25/event-ticketing-platform/backend/pkg/cache"
 	"github.com/raflibima25/event-ticketing-platform/backend/services/ticketing-service/internal/client"
 	"github.com/raflibima25/event-ticketing-platform/backend/services/ticketing-service/internal/payload/entity"
 	"github.com/raflibima25/event-ticketing-platform/backend/services/ticketing-service/internal/payload/request"
 	"github.com/raflibima25/event-ticketing-platform/backend/services/ticketing-service/internal/payload/response"
 	"github.com/raflibima25/event-ticketing-platform/backend/services/ticketing-service/internal/repository"
-	"github.com/raflibima25/event-ticketing-platform/backend/services/ticketing-service/internal/utility"
 )
 
 var (
@@ -35,7 +35,7 @@ type reservationService struct {
 	orderRepo      repository.OrderRepository
 	orderItemRepo  repository.OrderItemRepository
 	ticketTierRepo repository.TicketTierRepository
-	redisClient    *utility.RedisClient
+	redisClient    *cache.DistributedLockClient
 	paymentClient  PaymentClient
 	timeout        time.Duration
 }
@@ -50,15 +50,21 @@ func NewReservationService(
 	orderRepo repository.OrderRepository,
 	orderItemRepo repository.OrderItemRepository,
 	ticketTierRepo repository.TicketTierRepository,
-	redisClient *utility.RedisClient,
+	redisClient cache.RedisClient,
 	paymentClient PaymentClient,
 	timeout time.Duration,
 ) ReservationService {
+	// Wrap RedisClient with distributed lock convenience methods
+	var lockClient *cache.DistributedLockClient
+	if redisClient != nil {
+		lockClient = cache.NewDistributedLockClient(redisClient)
+	}
+
 	return &reservationService{
 		orderRepo:      orderRepo,
 		orderItemRepo:  orderItemRepo,
 		ticketTierRepo: ticketTierRepo,
-		redisClient:    redisClient,
+		redisClient:    lockClient,
 		paymentClient:  paymentClient,
 		timeout:        timeout,
 	}

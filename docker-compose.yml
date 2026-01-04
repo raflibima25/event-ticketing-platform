@@ -57,8 +57,8 @@ services:
   # API Gateway - Entry point for all HTTP requests
   api-gateway:
     build:
-      context: .
-      dockerfile: ./backend/services/gateway-service/Dockerfile
+      context: ./backend
+      dockerfile: ./services/gateway-service/Dockerfile
     container_name: ticketing-gateway
     environment:
       - PORT=8080
@@ -84,8 +84,8 @@ services:
   # Auth Service
   auth-service:
     build:
-      context: .
-      dockerfile: ./backend/services/auth-service/Dockerfile
+      context: ./backend
+      dockerfile: ./services/auth-service/Dockerfile
     container_name: ticketing-auth
     environment:
       - PORT=8081
@@ -114,8 +114,8 @@ services:
   # Event Service
   event-service:
     build:
-      context: .
-      dockerfile: ./backend/services/event-service/Dockerfile
+      context: ./backend
+      dockerfile: ./services/event-service/Dockerfile
     container_name: ticketing-event
     environment:
       - PORT=8082
@@ -142,8 +142,8 @@ services:
   # Ticketing Service
   ticketing-service:
     build:
-      context: .
-      dockerfile: ./backend/services/ticketing-service/Dockerfile
+      context: ./backend
+      dockerfile: ./services/ticketing-service/Dockerfile
     container_name: ticketing-ticketing
     environment:
       - PORT=8083
@@ -179,8 +179,8 @@ services:
   # Payment Service
   payment-service:
     build:
-      context: .
-      dockerfile: ./backend/services/payment-service/Dockerfile
+      context: ./backend
+      dockerfile: ./services/payment-service/Dockerfile
     container_name: ticketing-payment
     environment:
       - PORT=8084
@@ -203,6 +203,38 @@ services:
         condition: service_completed_successfully
       ticketing-service:
         condition: service_started
+    networks:
+      - ticketing-network
+    restart: unless-stopped
+    volumes:
+      - ./backend:/app:cached
+
+  # Notification Service
+  notification-service:
+    build:
+      context: ./backend
+      dockerfile: ./services/notification-service/Dockerfile
+    container_name: ticketing-notification
+    environment:
+      - PORT=8085
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=ticketing_platform
+      - DB_SSL_MODE=disable
+      - RESEND_API_KEY=${RESEND_API_KEY:-}
+      - RESEND_FROM_NAME=Event Ticketing Platform
+      - RESEND_FROM_EMAIL=${RESEND_FROM_EMAIL:-onboarding@resend.dev}
+      - RESEND_TEST_MODE=true
+      - RESEND_TEST_EMAIL=${RESEND_TEST_EMAIL:-}
+    ports:
+      - "8085:8085"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     networks:
       - ticketing-network
     restart: unless-stopped
