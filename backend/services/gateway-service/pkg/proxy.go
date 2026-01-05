@@ -71,7 +71,8 @@ func ProxyHandler(targetURL string) gin.HandlerFunc {
 
 		// Add identity token for Cloud Run service-to-service authentication
 		// This allows the gateway to call private Cloud Run services
-		if strings.Contains(targetURL, "run.app") {
+		// ONLY add identity token if Authorization header is NOT already present (preserve user JWT)
+		if strings.Contains(targetURL, "run.app") && proxyReq.Header.Get("Authorization") == "" {
 			tokenSource, err := idtoken.NewTokenSource(context.Background(), targetURL)
 			if err != nil {
 				log.Printf("[Proxy Warning] Failed to create token source for %s: %v", targetURL, err)

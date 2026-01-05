@@ -8,6 +8,7 @@ import (
 
 	pb "github.com/raflibima25/event-ticketing-platform/backend/pb/notification"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 )
 
@@ -22,9 +23,21 @@ type NotificationClient struct {
 func NewNotificationClient(grpcURL string) (*NotificationClient, error) {
 	// Use grpc.NewClient for lazy connection with auto-reconnect
 	// No WithBlock() - this allows the client to connect lazily and reconnect automatically
+
+	// Use TLS for Cloud Run services (production) or insecure for localhost (development)
+	var creds credentials.TransportCredentials
+	if grpcURL == "localhost:50055" || grpcURL == "127.0.0.1:50055" {
+		creds = insecure.NewCredentials()
+		log.Printf("[NotificationGRPC] Using insecure connection for local development")
+	} else {
+		// Use TLS for Cloud Run
+		creds = credentials.NewClientTLSFromCert(nil, "")
+		log.Printf("[NotificationGRPC] Using TLS connection for Cloud Run")
+	}
+
 	conn, err := grpc.NewClient(
 		grpcURL,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithTransportCredentials(creds),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create notification client: %w", err)

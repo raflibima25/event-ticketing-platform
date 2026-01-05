@@ -8,6 +8,7 @@ import (
 
 	pb "github.com/raflibima25/event-ticketing-platform/backend/pb/payment"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 )
 
@@ -22,9 +23,21 @@ type PaymentClient struct {
 func NewPaymentClient(grpcURL string) (*PaymentClient, error) {
 	// Use grpc.NewClient for lazy connection with auto-reconnect
 	// No WithBlock() - this allows the client to connect lazily and reconnect automatically
+
+	// Use TLS for Cloud Run services (production) or insecure for localhost (development)
+	var creds credentials.TransportCredentials
+	if grpcURL == "localhost:50054" || grpcURL == "127.0.0.1:50054" {
+		creds = insecure.NewCredentials()
+		log.Printf("[PaymentGRPC] Using insecure connection for local development")
+	} else {
+		// Use TLS for Cloud Run
+		creds = credentials.NewClientTLSFromCert(nil, "")
+		log.Printf("[PaymentGRPC] Using TLS connection for Cloud Run")
+	}
+
 	conn, err := grpc.NewClient(
 		grpcURL,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithTransportCredentials(creds),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create payment client: %w", err)
