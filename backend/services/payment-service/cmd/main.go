@@ -44,7 +44,13 @@ func main() {
 	log.Println("✅ Connected to database")
 
 	// Run migrations
+	// Production (Docker): ./migrations (copied to /root/migrations)
+	// Development (local): ../../migrations (relative to services/payment-service/cmd)
 	migrationsPath := "../../migrations"
+	// Note: payment-service doesn't have Environment in config, checking via env var
+	if os.Getenv("ENVIRONMENT") == "production" {
+		migrationsPath = "./migrations"
+	}
 	if err := utility.RunMigrations(db, migrationsPath); err != nil {
 		log.Printf("⚠️  Migration error: %v", err)
 		log.Println("⚠️  Continuing without migrations (ensure database schema is correct)")

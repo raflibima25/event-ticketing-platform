@@ -7,10 +7,7 @@ DROP INDEX IF EXISTS idx_refunds_status;
 DROP INDEX IF EXISTS idx_refunds_payment;
 DROP INDEX IF EXISTS idx_refunds_order;
 
-DROP INDEX IF EXISTS idx_webhook_events_type;
-DROP INDEX IF EXISTS idx_webhook_events_status;
-DROP INDEX IF EXISTS idx_webhook_events_webhook;
-
+-- Note: webhook_events indexes managed by migration 000001, don't drop
 DROP INDEX IF EXISTS idx_payment_transactions_status;
 DROP INDEX IF EXISTS idx_payment_transactions_invoice;
 DROP INDEX IF EXISTS idx_payment_transactions_external;
@@ -18,5 +15,11 @@ DROP INDEX IF EXISTS idx_payment_transactions_order;
 
 -- Drop tables
 DROP TABLE IF EXISTS refunds;
-DROP TABLE IF EXISTS webhook_events;
+-- Note: webhook_events table created in migration 000001, don't drop, just revert changes
+ALTER TABLE webhook_events DROP CONSTRAINT IF EXISTS webhook_events_status_check;
+ALTER TABLE webhook_events DROP COLUMN IF EXISTS status;
+
 DROP TABLE IF EXISTS payment_transactions;
+
+-- Restore old payments table
+ALTER TABLE IF EXISTS payments_legacy RENAME TO payments;

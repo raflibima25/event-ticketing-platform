@@ -1,4 +1,7 @@
--- Create payment_transactions table
+-- Rename old payments table to payments_legacy (from migration 000001)
+ALTER TABLE IF EXISTS payments RENAME TO payments_legacy;
+
+-- Create payment_transactions table (new payment tracking table)
 CREATE TABLE IF NOT EXISTS payment_transactions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     order_id UUID NOT NULL,
@@ -22,19 +25,27 @@ CREATE INDEX IF NOT EXISTS idx_payment_transactions_external ON payment_transact
 CREATE INDEX IF NOT EXISTS idx_payment_transactions_invoice ON payment_transactions(invoice_id);
 CREATE INDEX IF NOT EXISTS idx_payment_transactions_status ON payment_transactions(status);
 
--- Create webhook_events table for idempotency
-CREATE TABLE IF NOT EXISTS webhook_events (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    webhook_id VARCHAR(255) UNIQUE NOT NULL,
-    event_type VARCHAR(50) NOT NULL,
-    payload JSONB NOT NULL,
-    processed_at TIMESTAMPTZ,
-    status VARCHAR(20) DEFAULT 'pending',
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    CONSTRAINT webhook_events_status_check CHECK (status IN ('pending', 'processed', 'failed'))
-);
+-- Update webhook_events table (add status column to existing table from migration 000001)
+-- First, add status column if it doesn't exist
+ALTER TABLE webhook_events
+  ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'pending';
 
--- Create indexes for webhook_events
+-- Add constraint for status if it doesn't exist (drop first to avoid duplicate)
+ALTER TABLE webhook_events
+  DROP CONSTRAINT IF EXISTS webhook_events_status_check;
+
+ALTER TABLE webhook_events
+  ADD CONSTRAINT webhook_events_status_check CHECK (status IN ('pending', 'processed', 'failed'));
+
+-- Migrate data: set status based on processed column
+UPDATE webhook_events
+SET status = CASE
+  WHEN processed = true THEN 'processed'
+  ELSE 'pending'
+END
+WHERE status = 'pending' OR status IS NULL;
+
+-- Create indexes for webhook_events (safe to run even if they exist)
 CREATE INDEX IF NOT EXISTS idx_webhook_events_webhook ON webhook_events(webhook_id);
 CREATE INDEX IF NOT EXISTS idx_webhook_events_status ON webhook_events(status);
 CREATE INDEX IF NOT EXISTS idx_webhook_events_type ON webhook_events(event_type);

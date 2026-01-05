@@ -43,8 +43,13 @@ func main() {
 	log.Println("Successfully connected to database")
 
 	// Run database migrations automatically
+	// Production (Docker): ./migrations (copied to /root/migrations)
+	// Development (local): ../../migrations (relative to services/event-service/cmd)
 	migrationsPath := "../../migrations"
-	if err := utility.RunMigrations(db, migrationsPath); err != nil {
+	if cfg.Environment == "production" {
+		migrationsPath = "./migrations"
+	}
+	if err := utility.RunMigrations(db, migrationsPath); err != nil{
 		log.Printf("⚠️  Migration error: %v", err)
 		log.Println("⚠️  Continuing without migrations (ensure database schema is correct)")
 	}

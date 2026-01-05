@@ -19,6 +19,8 @@ RUN apk --no-cache add ca-certificates
 WORKDIR /root/
 
 COPY --from=builder /payment-service .
+# Copy migration files from builder stage
+COPY --from=builder /app/migrations ./migrations
 
 EXPOSE 8084
 
