@@ -25,24 +25,24 @@ type ConfirmPaymentRequest struct {
 }
 
 // NewTicketingClient creates new ticketing gRPC client instance
+// Connection is non-blocking and will auto-reconnect when ticketing service becomes available
 func NewTicketingClient(grpcURL string) (*TicketingClient, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	// Connect to ticketing service
-	conn, err := grpc.DialContext(
-		ctx,
+	// Non-blocking connection with auto-reconnect
+	// Remove grpc.WithBlock() to allow service to start even if ticketing-service is not ready
+	conn, err := grpc.Dial(
 		grpcURL,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithBlock(),
+		// grpc.WithBlock() removed - connection is now non-blocking
+		// gRPC will automatically reconnect when service becomes available
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect to ticketing service at %s: %w", grpcURL, err)
+		return nil, fmt.Errorf("failed to initialize gRPC connection to ticketing service at %s: %w", grpcURL, err)
 	}
 
 	client := pb.NewTicketingServiceClient(conn)
 
-	log.Printf("[TicketingGRPC] Connected to ticketing service at %s", grpcURL)
+	log.Printf("[TicketingGRPC] ✅ Ticketing gRPC client initialized (will connect to %s when available)", grpcURL)
+	log.Printf("[TicketingGRPC] 🔄 Connection is non-blocking with auto-reconnect enabled")
 
 	return &TicketingClient{
 		client: client,

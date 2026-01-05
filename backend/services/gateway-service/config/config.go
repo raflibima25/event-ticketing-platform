@@ -33,10 +33,10 @@ type RateLimitConfig struct {
 
 // ServiceURLs holds backend service URLs
 type ServiceURLs struct {
-	AuthService        string
-	EventService       string
-	TicketingService   string
-	PaymentService     string
+	AuthService         string
+	EventService        string
+	TicketingService    string
+	PaymentService      string
 	NotificationService string
 }
 
@@ -57,10 +57,10 @@ func Load() *Config {
 			Enabled:           getEnv("RATE_LIMIT_ENABLED", "true") == "true",
 		},
 		Services: ServiceURLs{
-			AuthService:        getEnv("AUTH_SERVICE_URL", "http://localhost:8081"),
-			EventService:       getEnv("EVENT_SERVICE_URL", "http://localhost:8082"),
-			TicketingService:   getEnv("TICKETING_SERVICE_URL", "http://localhost:8083"),
-			PaymentService:     getEnv("PAYMENT_SERVICE_URL", "http://localhost:8084"),
+			AuthService:         getEnv("AUTH_SERVICE_URL", "http://localhost:8081"),
+			EventService:        getEnv("EVENT_SERVICE_URL", "http://localhost:8082"),
+			TicketingService:    getEnv("TICKETING_SERVICE_URL", "http://localhost:8083"),
+			PaymentService:      getEnv("PAYMENT_SERVICE_URL", "http://localhost:8084"),
 			NotificationService: getEnv("NOTIFICATION_SERVICE_URL", "http://localhost:8085"),
 		},
 	}

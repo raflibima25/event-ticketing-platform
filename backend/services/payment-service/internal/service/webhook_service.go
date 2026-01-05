@@ -135,6 +135,15 @@ func (s *webhookService) handleInvoicePaid(ctx context.Context, payload *respons
 		Amount:        payload.PaidAmount,
 	}
 
+	// Check if ticketing client is available
+	if s.ticketingClient == nil {
+		log.Printf("[WARNING] Ticketing Service gRPC client not available, cannot confirm payment for order %s", payment.OrderID)
+		log.Printf("[WARNING] Payment is marked as paid, but tickets need to be generated manually or via retry")
+		// Payment is already marked as paid - this should be retried via background job
+		// TODO: Add to retry queue
+		return nil
+	}
+
 	if err := s.ticketingClient.ConfirmPayment(payment.OrderID, confirmReq); err != nil {
 		log.Printf("[ERROR] Failed to confirm payment with ticketing service: %v", err)
 		// Don't return error - payment is already marked as paid

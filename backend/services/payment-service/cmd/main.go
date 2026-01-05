@@ -58,12 +58,15 @@ func main() {
 	// Initialize clients
 	xenditClient := client.NewXenditClient(&cfg.Xendit)
 
-	// Initialize ticketing gRPC client
+	// Initialize ticketing gRPC client (non-blocking with auto-reconnect)
 	ticketingClient, err := client.NewTicketingClient(cfg.TicketingService.GRPCAddress)
 	if err != nil {
-		log.Fatalf("❌ Failed to connect to Ticketing Service gRPC: %v", err)
+		log.Printf("⚠️  Warning: Failed to initialize Ticketing Service gRPC client: %v", err)
+		log.Println("⚠️  Payment service will continue without ticketing client")
+		ticketingClient = nil
+	} else {
+		defer ticketingClient.Close()
 	}
-	defer ticketingClient.Close()
 
 	log.Println("✅ External clients initialized")
 

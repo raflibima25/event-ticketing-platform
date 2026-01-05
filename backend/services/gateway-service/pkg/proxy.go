@@ -1,6 +1,7 @@
 package pkg
 
 import (
+	"context"
 	"io"
 	"log"
 	"net/http"
@@ -8,6 +9,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"google.golang.org/api/idtoken"
 )
 
 // ProxyHandler creates a reverse proxy handler for backend services
@@ -65,6 +67,22 @@ func ProxyHandler(targetURL string) gin.HandlerFunc {
 			proxyReq.Header.Set("X-Correlation-ID", correlationID.(string))
 		} else if correlationID := c.GetHeader("X-Request-ID"); correlationID != "" {
 			proxyReq.Header.Set("X-Correlation-ID", correlationID)
+		}
+
+		// Add identity token for Cloud Run service-to-service authentication
+		// This allows the gateway to call private Cloud Run services
+		if strings.Contains(targetURL, "run.app") {
+			tokenSource, err := idtoken.NewTokenSource(context.Background(), targetURL)
+			if err != nil {
+				log.Printf("[Proxy Warning] Failed to create token source for %s: %v", targetURL, err)
+			} else {
+				token, err := tokenSource.Token()
+				if err != nil {
+					log.Printf("[Proxy Warning] Failed to get identity token for %s: %v", targetURL, err)
+				} else {
+					proxyReq.Header.Set("Authorization", "Bearer "+token.AccessToken)
+				}
+			}
 		}
 
 		// Execute request

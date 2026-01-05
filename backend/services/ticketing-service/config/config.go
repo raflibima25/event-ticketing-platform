@@ -120,6 +120,20 @@ func Load() *Config {
 
 // GetDatabaseURL constructs PostgreSQL connection URL
 func (c *Config) GetDatabaseURL() string {
+	// Check if using Cloud SQL Unix socket (path starts with /)
+	if len(c.Database.Host) > 0 && c.Database.Host[0] == '/' {
+		// Unix socket format: postgres://user:password@/dbname?host=/cloudsql/INSTANCE
+		return fmt.Sprintf(
+			"postgres://%s:%s@/%s?host=%s&sslmode=%s",
+			c.Database.User,
+			c.Database.Password,
+			c.Database.Name,
+			c.Database.Host,
+			c.Database.SSLMode,
+		)
+	}
+
+	// TCP connection format: postgres://user:password@host:port/dbname?sslmode=disable
 	return fmt.Sprintf(
 		"postgres://%s:%s@%s:%s/%s?sslmode=%s",
 		c.Database.User,
