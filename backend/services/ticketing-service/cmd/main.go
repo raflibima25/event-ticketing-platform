@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	"github.com/joho/godotenv"
+	"github.com/soheilhy/cmux"
 	pb "github.com/raflibima25/event-ticketing-platform/backend/pb/ticketing"
 	"github.com/raflibima25/event-ticketing-platform/backend/pkg/cache"
 	"github.com/raflibima25/event-ticketing-platform/backend/services/ticketing-service/config"
@@ -189,46 +191,74 @@ func main() {
 
 	log.Println("Background worker started")
 
-	// Start HTTP server
-	serverAddr := ":" + cfg.Port
+	// Create HTTP server (without Addr - will use cmux listener)
+	httpServer := &http.Server{
+		Handler: r,
+	}
+
+	// Create a single listener on HTTP port (Cloud Run only allows one port)
+	listener, err := net.Listen("tcp", ":"+cfg.Port)
+	if err != nil {
+		log.Fatalf("❌ Failed to create listener: %v", err)
+	}
+
+	// Create a cmux multiplexer
+	m := cmux.New(listener)
+
+	// Match gRPC connections (HTTP/2 with content-type application/grpc)
+	grpcListener := m.MatchWithWriters(cmux.HTTP2MatchHeaderFieldSendSettings("content-type", "application/grpc"))
+
+	// Match HTTP connections (everything else)
+	httpListener := m.Match(cmux.Any())
+
+	// Start HTTP server in goroutine
+	go func() {
+		log.Printf("🚀 HTTP Server running on port %s (multiplexed)", cfg.Port)
+		if err := httpServer.Serve(httpListener); err != nil && err != http.ErrServerClosed {
+			log.Printf("❌ HTTP server error: %v", err)
+		}
+	}()
+
+	// Start gRPC server in goroutine
+	go func() {
+		log.Printf("🚀 gRPC Server running on port %s (multiplexed)", cfg.Port)
+		if err := grpcServer.Serve(grpcListener); err != nil {
+			log.Printf("❌ gRPC server error: %v", err)
+		}
+	}()
+
+	// Start serving (multiplexing)
+	go func() {
+		log.Printf("🔀 Multiplexer serving HTTP and gRPC on port %s", cfg.Port)
+		if err := m.Serve(); err != nil {
+			log.Printf("❌ Multiplexer error: %v", err)
+		}
+	}()
 
 	// Setup graceful shutdown
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 
-	// Run HTTP server in goroutine
-	go func() {
-		log.Printf("🚀 HTTP Server running on port %s", cfg.Port)
-		if err := r.Run(serverAddr); err != nil {
-			log.Fatalf("Failed to start HTTP server: %v", err)
-		}
-	}()
-
-	// Run gRPC server in goroutine
-	go func() {
-		listener, err := net.Listen("tcp", ":"+cfg.GRPCPort)
-		if err != nil {
-			log.Fatalf("Failed to listen on gRPC port: %v", err)
-		}
-		log.Printf("🚀 gRPC Server running on port %s", cfg.GRPCPort)
-		if err := grpcServer.Serve(listener); err != nil {
-			log.Fatalf("Failed to start gRPC server: %v", err)
-		}
-	}()
-
 	// Wait for interrupt signal
 	<-quit
-	log.Println("Shutting down server...")
+	log.Println("🛑 Shutting down ticketing service...")
+
+	// Shutdown HTTP server
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer shutdownCancel()
+
+	if err := httpServer.Shutdown(shutdownCtx); err != nil {
+		log.Printf("❌ HTTP server forced to shutdown: %v", err)
+	}
+
+	// Shutdown gRPC server
+	grpcServer.GracefulStop()
+
+	// Close multiplexer listener
+	listener.Close()
 
 	// Stop background worker
 	cleanupWorker.Stop()
 
-	// Give outstanding operations a deadline for completion
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer shutdownCancel()
-
-	// Wait for shutdown context
-	<-shutdownCtx.Done()
-
-	log.Println("Server stopped gracefully")
+	log.Println("✅ Ticketing service stopped gracefully")
 }

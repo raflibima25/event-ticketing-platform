@@ -8,6 +8,7 @@ import (
 
 	pb "github.com/raflibima25/event-ticketing-platform/backend/pb/ticketing"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 )
 
@@ -27,22 +28,29 @@ type ConfirmPaymentRequest struct {
 // NewTicketingClient creates new ticketing gRPC client instance
 // Connection is non-blocking and will auto-reconnect when ticketing service becomes available
 func NewTicketingClient(grpcURL string) (*TicketingClient, error) {
-	// Non-blocking connection with auto-reconnect
-	// Remove grpc.WithBlock() to allow service to start even if ticketing-service is not ready
-	conn, err := grpc.Dial(
+	// Use TLS for Cloud Run services (production) or insecure for localhost (development)
+	var creds credentials.TransportCredentials
+	if grpcURL == "localhost:50052" || grpcURL == "127.0.0.1:50052" {
+		creds = insecure.NewCredentials()
+		log.Printf("[TicketingGRPC] Using insecure connection for local development")
+	} else {
+		// Use TLS for Cloud Run
+		creds = credentials.NewClientTLSFromCert(nil, "")
+		log.Printf("[TicketingGRPC] Using TLS connection for Cloud Run")
+	}
+
+	// Use grpc.NewClient for lazy connection with auto-reconnect
+	// No WithBlock() - this allows the client to connect lazily and reconnect automatically
+	conn, err := grpc.NewClient(
 		grpcURL,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		// grpc.WithBlock() removed - connection is now non-blocking
-		// gRPC will automatically reconnect when service becomes available
+		grpc.WithTransportCredentials(creds),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to initialize gRPC connection to ticketing service at %s: %w", grpcURL, err)
+		return nil, fmt.Errorf("failed to create ticketing client: %w", err)
 	}
 
 	client := pb.NewTicketingServiceClient(conn)
-
-	log.Printf("[TicketingGRPC] ✅ Ticketing gRPC client initialized (will connect to %s when available)", grpcURL)
-	log.Printf("[TicketingGRPC] 🔄 Connection is non-blocking with auto-reconnect enabled")
+	log.Printf("[TicketingGRPC] Ticketing client initialized for %s (lazy connection with auto-reconnect)", grpcURL)
 
 	return &TicketingClient{
 		client: client,
