@@ -267,3 +267,5 @@ This is an MVP project. Refer to CLAUDE.md for development guidelines and archit
 ## 📄 License
 
 This project is for educational/development purposes.
+
+Test Cloud Build CI/CD
