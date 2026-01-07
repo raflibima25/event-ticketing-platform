@@ -1,0 +1,314 @@
+# Cloud Build configuration for Event Ticketing Platform
+# Triggered on push to main branch
+#
+# Workflow:
+# 1. Run tests (go test)
+# 2. Build all Docker images in parallel
+# 3. Push images to Artifact Registry
+# 4. Deploy all services to Cloud Run
+
+options:
+  machineType: 'E2_HIGHCPU_8'
+  logging: CLOUD_LOGGING_ONLY
+
+timeout: 1800s  # 30 minutes
+
+substitutions:
+  _PROJECT_ID: 'project-4aa96947-a91f-4413-a51'
+  _REGION: 'asia-southeast2'
+  _ARTIFACT_REGISTRY: 'asia-southeast2-docker.pkg.dev/project-4aa96947-a91f-4413-a51/event-ticketing'
+
+steps:
+  # ============================================
+  # STEP 1: Run Tests
+  # ============================================
+  - name: 'golang:1.25-alpine'
+    id: 'run-tests'
+    entrypoint: 'sh'
+    args:
+      - '-c'
+      - |
+        echo "========================================" && \
+        echo "Running Go Tests" && \
+        echo "========================================" && \
+        apk add --no-cache git && \
+        go mod download && \
+        go test ./... -v -cover -timeout 5m || exit 1 && \
+        echo "✅ All tests passed"
+    waitFor: ['-']
+
+  # ============================================
+  # STEP 2: Build Docker Images (Parallel)
+  # ============================================
+
+  # Auth Service
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'build-auth-service'
+    args:
+      - 'build'
+      - '-t'
+      - '${_ARTIFACT_REGISTRY}/auth-service:$COMMIT_SHA'
+      - '-t'
+      - '${_ARTIFACT_REGISTRY}/auth-service:latest'
+      - '-f'
+      - 'services/auth-service/Dockerfile'
+      - '.'
+    waitFor: ['run-tests']
+
+  # Gateway Service
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'build-gateway-service'
+    args:
+      - 'build'
+      - '-t'
+      - '${_ARTIFACT_REGISTRY}/gateway-service:$COMMIT_SHA'
+      - '-t'
+      - '${_ARTIFACT_REGISTRY}/gateway-service:latest'
+      - '-f'
+      - 'services/gateway-service/Dockerfile'
+      - '.'
+    waitFor: ['run-tests']
+
+  # Event Service
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'build-event-service'
+    args:
+      - 'build'
+      - '-t'
+      - '${_ARTIFACT_REGISTRY}/event-service:$COMMIT_SHA'
+      - '-t'
+      - '${_ARTIFACT_REGISTRY}/event-service:latest'
+      - '-f'
+      - 'services/event-service/Dockerfile'
+      - '.'
+    waitFor: ['run-tests']
+
+  # Ticketing Service
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'build-ticketing-service'
+    args:
+      - 'build'
+      - '-t'
+      - '${_ARTIFACT_REGISTRY}/ticketing-service:$COMMIT_SHA'
+      - '-t'
+      - '${_ARTIFACT_REGISTRY}/ticketing-service:latest'
+      - '-f'
+      - 'services/ticketing-service/Dockerfile'
+      - '.'
+    waitFor: ['run-tests']
+
+  # Payment Service
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'build-payment-service'
+    args:
+      - 'build'
+      - '-t'
+      - '${_ARTIFACT_REGISTRY}/payment-service:$COMMIT_SHA'
+      - '-t'
+      - '${_ARTIFACT_REGISTRY}/payment-service:latest'
+      - '-f'
+      - 'services/payment-service/Dockerfile'
+      - '.'
+    waitFor: ['run-tests']
+
+  # Notification Service
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'build-notification-service'
+    args:
+      - 'build'
+      - '-t'
+      - '${_ARTIFACT_REGISTRY}/notification-service:$COMMIT_SHA'
+      - '-t'
+      - '${_ARTIFACT_REGISTRY}/notification-service:latest'
+      - '-f'
+      - 'services/notification-service/Dockerfile'
+      - '.'
+    waitFor: ['run-tests']
+
+  # ============================================
+  # STEP 3: Push Images to Artifact Registry (Parallel)
+  # ============================================
+
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'push-auth-service'
+    args:
+      - 'push'
+      - '--all-tags'
+      - '${_ARTIFACT_REGISTRY}/auth-service'
+    waitFor: ['build-auth-service']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'push-gateway-service'
+    args:
+      - 'push'
+      - '--all-tags'
+      - '${_ARTIFACT_REGISTRY}/gateway-service'
+    waitFor: ['build-gateway-service']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'push-event-service'
+    args:
+      - 'push'
+      - '--all-tags'
+      - '${_ARTIFACT_REGISTRY}/event-service'
+    waitFor: ['build-event-service']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'push-ticketing-service'
+    args:
+      - 'push'
+      - '--all-tags'
+      - '${_ARTIFACT_REGISTRY}/ticketing-service'
+    waitFor: ['build-ticketing-service']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'push-payment-service'
+    args:
+      - 'push'
+      - '--all-tags'
+      - '${_ARTIFACT_REGISTRY}/payment-service'
+    waitFor: ['build-payment-service']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'push-notification-service'
+    args:
+      - 'push'
+      - '--all-tags'
+      - '${_ARTIFACT_REGISTRY}/notification-service'
+    waitFor: ['build-notification-service']
+
+  # ============================================
+  # STEP 4: Deploy to Cloud Run (Parallel)
+  # ============================================
+
+  # Deploy Auth Service
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'deploy-auth-service'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'auth-service'
+      - '--image=${_ARTIFACT_REGISTRY}/auth-service:$COMMIT_SHA'
+      - '--region=${_REGION}'
+      - '--platform=managed'
+      - '--allow-unauthenticated'
+    waitFor: ['push-auth-service']
+
+  # Deploy Gateway Service
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'deploy-gateway-service'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'gateway-service'
+      - '--image=${_ARTIFACT_REGISTRY}/gateway-service:$COMMIT_SHA'
+      - '--region=${_REGION}'
+      - '--platform=managed'
+      - '--allow-unauthenticated'
+    waitFor: ['push-gateway-service']
+
+  # Deploy Event Service
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'deploy-event-service'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'event-service'
+      - '--image=${_ARTIFACT_REGISTRY}/event-service:$COMMIT_SHA'
+      - '--region=${_REGION}'
+      - '--platform=managed'
+      - '--allow-unauthenticated'
+    waitFor: ['push-event-service']
+
+  # Deploy Ticketing Service
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'deploy-ticketing-service'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'ticketing-service'
+      - '--image=${_ARTIFACT_REGISTRY}/ticketing-service:$COMMIT_SHA'
+      - '--region=${_REGION}'
+      - '--platform=managed'
+      - '--allow-unauthenticated'
+    waitFor: ['push-ticketing-service']
+
+  # Deploy Payment Service
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'deploy-payment-service'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'payment-service'
+      - '--image=${_ARTIFACT_REGISTRY}/payment-service:$COMMIT_SHA'
+      - '--region=${_REGION}'
+      - '--platform=managed'
+      - '--allow-unauthenticated'
+    waitFor: ['push-payment-service']
+
+  # Deploy Notification Service
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'deploy-notification-service'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'notification-service'
+      - '--image=${_ARTIFACT_REGISTRY}/notification-service:$COMMIT_SHA'
+      - '--region=${_REGION}'
+      - '--platform=managed'
+      - '--allow-unauthenticated'
+    waitFor: ['push-notification-service']
+
+  # ============================================
+  # STEP 5: Deployment Summary
+  # ============================================
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'deployment-summary'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        echo "========================================" && \
+        echo "🎉 Deployment Complete!" && \
+        echo "========================================" && \
+        echo "Commit: $COMMIT_SHA" && \
+        echo "Branch: $BRANCH_NAME" && \
+        echo "" && \
+        echo "Services deployed:" && \
+        echo "  ✅ auth-service" && \
+        echo "  ✅ gateway-service" && \
+        echo "  ✅ event-service" && \
+        echo "  ✅ ticketing-service" && \
+        echo "  ✅ payment-service" && \
+        echo "  ✅ notification-service" && \
+        echo "========================================" && \
+        echo "Gateway URL: https://gateway-service-kyficgrsia-et.a.run.app" && \
+        echo "========================================"
+    waitFor:
+      - 'deploy-auth-service'
+      - 'deploy-gateway-service'
+      - 'deploy-event-service'
+      - 'deploy-ticketing-service'
+      - 'deploy-payment-service'
+      - 'deploy-notification-service'
+
+# Images to be pushed to Artifact Registry
+images:
+  - '${_ARTIFACT_REGISTRY}/auth-service:$COMMIT_SHA'
+  - '${_ARTIFACT_REGISTRY}/auth-service:latest'
+  - '${_ARTIFACT_REGISTRY}/gateway-service:$COMMIT_SHA'
+  - '${_ARTIFACT_REGISTRY}/gateway-service:latest'
+  - '${_ARTIFACT_REGISTRY}/event-service:$COMMIT_SHA'
+  - '${_ARTIFACT_REGISTRY}/event-service:latest'
+  - '${_ARTIFACT_REGISTRY}/ticketing-service:$COMMIT_SHA'
+  - '${_ARTIFACT_REGISTRY}/ticketing-service:latest'
+  - '${_ARTIFACT_REGISTRY}/payment-service:$COMMIT_SHA'
+  - '${_ARTIFACT_REGISTRY}/payment-service:latest'
+  - '${_ARTIFACT_REGISTRY}/notification-service:$COMMIT_SHA'
+  - '${_ARTIFACT_REGISTRY}/notification-service:latest'
