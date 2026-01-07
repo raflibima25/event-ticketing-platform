@@ -34,8 +34,8 @@ steps:
       - '-t'
       - '${_ARTIFACT_REGISTRY}/auth-service:latest'
       - '-f'
-      - 'services/auth-service/Dockerfile'
-      - '.'
+      - 'backend/services/auth-service/Dockerfile'
+      - 'backend'
     waitFor: ['-']
 
   # Gateway Service
@@ -48,8 +48,8 @@ steps:
       - '-t'
       - '${_ARTIFACT_REGISTRY}/gateway-service:latest'
       - '-f'
-      - 'services/gateway-service/Dockerfile'
-      - '.'
+      - 'backend/services/gateway-service/Dockerfile'
+      - 'backend'
     waitFor: ['-']
 
   # Event Service
@@ -62,8 +62,8 @@ steps:
       - '-t'
       - '${_ARTIFACT_REGISTRY}/event-service:latest'
       - '-f'
-      - 'services/event-service/Dockerfile'
-      - '.'
+      - 'backend/services/event-service/Dockerfile'
+      - 'backend'
     waitFor: ['-']
 
   # Ticketing Service
@@ -76,8 +76,8 @@ steps:
       - '-t'
       - '${_ARTIFACT_REGISTRY}/ticketing-service:latest'
       - '-f'
-      - 'services/ticketing-service/Dockerfile'
-      - '.'
+      - 'backend/services/ticketing-service/Dockerfile'
+      - 'backend'
     waitFor: ['-']
 
   # Payment Service
@@ -90,8 +90,8 @@ steps:
       - '-t'
       - '${_ARTIFACT_REGISTRY}/payment-service:latest'
       - '-f'
-      - 'services/payment-service/Dockerfile'
-      - '.'
+      - 'backend/services/payment-service/Dockerfile'
+      - 'backend'
     waitFor: ['-']
 
   # Notification Service
@@ -104,8 +104,8 @@ steps:
       - '-t'
       - '${_ARTIFACT_REGISTRY}/notification-service:latest'
       - '-f'
-      - 'services/notification-service/Dockerfile'
-      - '.'
+      - 'backend/services/notification-service/Dockerfile'
+      - 'backend'
     waitFor: ['-']
 
   # ============================================
