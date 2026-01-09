@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	sharedresponse "github.com/raflibima25/event-ticketing-platform/backend/pkg/response"
 )
 
 // AuthMiddleware validates JWT tokens
@@ -15,9 +16,7 @@ func AuthMiddleware(jwtSecret string) gin.HandlerFunc {
 		// Get Authorization header
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
-			c.JSON(http.StatusUnauthorized, gin.H{
-				"error": "Authorization header required",
-			})
+			c.JSON(http.StatusUnauthorized, sharedresponse.Error("Authorization header required", nil))
 			c.Abort()
 			return
 		}
@@ -25,9 +24,7 @@ func AuthMiddleware(jwtSecret string) gin.HandlerFunc {
 		// Check Bearer prefix
 		parts := strings.Split(authHeader, " ")
 		if len(parts) != 2 || parts[0] != "Bearer" {
-			c.JSON(http.StatusUnauthorized, gin.H{
-				"error": "Invalid authorization header format (expected: Bearer <token>)",
-			})
+			c.JSON(http.StatusUnauthorized, sharedresponse.Error("Invalid authorization header format (expected: Bearer <token>)", nil))
 			c.Abort()
 			return
 		}
@@ -44,17 +41,13 @@ func AuthMiddleware(jwtSecret string) gin.HandlerFunc {
 		})
 
 		if err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{
-				"error": "Invalid or expired token",
-			})
+			c.JSON(http.StatusUnauthorized, sharedresponse.Error("Invalid or expired token", err.Error()))
 			c.Abort()
 			return
 		}
 
 		if !token.Valid {
-			c.JSON(http.StatusUnauthorized, gin.H{
-				"error": "Token is not valid",
-			})
+			c.JSON(http.StatusUnauthorized, sharedresponse.Error("Token is not valid", nil))
 			c.Abort()
 			return
 		}
@@ -122,9 +115,7 @@ func RoleMiddleware(requiredRoles ...string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		role, exists := c.Get("role")
 		if !exists {
-			c.JSON(http.StatusForbidden, gin.H{
-				"error": "Access denied: role information not found",
-			})
+			c.JSON(http.StatusForbidden, sharedresponse.Error("Access denied: role information not found", nil))
 			c.Abort()
 			return
 		}
@@ -137,9 +128,7 @@ func RoleMiddleware(requiredRoles ...string) gin.HandlerFunc {
 			}
 		}
 
-		c.JSON(http.StatusForbidden, gin.H{
-			"error": fmt.Sprintf("Access denied: requires one of roles: %v", requiredRoles),
-		})
+		c.JSON(http.StatusForbidden, sharedresponse.Error(fmt.Sprintf("Access denied: requires one of roles: %v", requiredRoles), nil))
 		c.Abort()
 	}
 }

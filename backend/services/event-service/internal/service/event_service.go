@@ -228,7 +228,7 @@ func (s *eventService) ListEvents(ctx context.Context, filters request.ListEvent
 
 	return &response.PaginatedEventsResponse{
 		Events: eventResponses,
-		Pagination: response.PaginationMeta{
+		Meta: response.PaginationMeta{
 			CurrentPage: page,
 			PerPage:     limit,
 			Total:       total,

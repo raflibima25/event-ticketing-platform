@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	sharedresponse "github.com/raflibima25/event-ticketing-platform/backend/pkg/response"
 	"github.com/raflibima25/event-ticketing-platform/backend/services/ticketing-service/internal/message"
 	"github.com/raflibima25/event-ticketing-platform/backend/services/ticketing-service/internal/payload/request"
 	"github.com/raflibima25/event-ticketing-platform/backend/services/ticketing-service/internal/service"
@@ -30,9 +31,7 @@ func (c *TicketController) GetTicket(ctx *gin.Context) {
 	// Get user ID from context
 	userID, exists := ctx.Get("user_id")
 	if !exists {
-		ctx.JSON(http.StatusUnauthorized, gin.H{
-			"error": message.ErrUnauthorized,
-		})
+		ctx.JSON(http.StatusUnauthorized, sharedresponse.Error(message.ErrUnauthorized, nil))
 		return
 	}
 
@@ -52,16 +51,11 @@ func (c *TicketController) GetTicket(ctx *gin.Context) {
 			errorMessage = message.ErrForbidden
 		}
 
-		ctx.JSON(statusCode, gin.H{
-			"error": errorMessage,
-		})
+		ctx.JSON(statusCode, sharedresponse.Error(errorMessage, err.Error()))
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"message": message.MsgTicketRetrieved,
-		"data":    ticket,
-	})
+	ctx.JSON(http.StatusOK, sharedresponse.Success(message.MsgTicketRetrieved, ticket))
 }
 
 // GetUserTickets handles GET /tickets - Get user's tickets
@@ -69,9 +63,7 @@ func (c *TicketController) GetUserTickets(ctx *gin.Context) {
 	// Get user ID from context
 	userID, exists := ctx.Get("user_id")
 	if !exists {
-		ctx.JSON(http.StatusUnauthorized, gin.H{
-			"error": message.ErrUnauthorized,
-		})
+		ctx.JSON(http.StatusUnauthorized, sharedresponse.Error(message.ErrUnauthorized, nil))
 		return
 	}
 
@@ -80,26 +72,18 @@ func (c *TicketController) GetUserTickets(ctx *gin.Context) {
 	if err != nil {
 		log.Printf("[ERROR] GetUserTickets failed for user %s: %v", userID.(string), err)
 
-		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"error": message.ErrInternalServer,
-		})
+		ctx.JSON(http.StatusInternalServerError, sharedresponse.Error(message.ErrInternalServer, err.Error()))
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"message": message.MsgTicketsRetrieved,
-		"data":    tickets,
-	})
+	ctx.JSON(http.StatusOK, sharedresponse.Success(message.MsgTicketsRetrieved, tickets))
 }
 
 // ValidateTicket handles POST /tickets/validate - Validate ticket at event entrance
 func (c *TicketController) ValidateTicket(ctx *gin.Context) {
 	var req request.ValidateTicketRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"error":   message.ErrInvalidRequest,
-			"details": err.Error(),
-		})
+		ctx.JSON(http.StatusBadRequest, sharedresponse.Error(message.ErrInvalidRequest, err.Error()))
 		return
 	}
 
@@ -120,14 +104,9 @@ func (c *TicketController) ValidateTicket(ctx *gin.Context) {
 			errorMessage = message.ErrTicketInvalid
 		}
 
-		ctx.JSON(statusCode, gin.H{
-			"error": errorMessage,
-		})
+		ctx.JSON(statusCode, sharedresponse.Error(errorMessage, err.Error()))
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"message": message.MsgTicketValidated,
-		"data":    ticket,
-	})
+	ctx.JSON(http.StatusOK, sharedresponse.Success(message.MsgTicketValidated, ticket))
 }

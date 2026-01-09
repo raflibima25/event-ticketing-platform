@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	sharedresponse "github.com/raflibima25/event-ticketing-platform/backend/pkg/response"
 	"github.com/raflibima25/event-ticketing-platform/backend/services/ticketing-service/internal/message"
 	"github.com/raflibima25/event-ticketing-platform/backend/services/ticketing-service/internal/payload/request"
 	"github.com/raflibima25/event-ticketing-platform/backend/services/ticketing-service/internal/service"
@@ -36,19 +37,14 @@ func NewOrderController(
 func (c *OrderController) CreateOrder(ctx *gin.Context) {
 	var req request.CreateOrderRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"error":   message.ErrInvalidRequest,
-			"details": err.Error(),
-		})
+		ctx.JSON(http.StatusBadRequest, sharedresponse.Error(message.ErrInvalidRequest, err.Error()))
 		return
 	}
 
 	// Get user ID from context (set by auth middleware)
 	userID, exists := ctx.Get("user_id")
 	if !exists {
-		ctx.JSON(http.StatusUnauthorized, gin.H{
-			"error": message.ErrUnauthorized,
-		})
+		ctx.JSON(http.StatusUnauthorized, sharedresponse.Error(message.ErrUnauthorized, nil))
 		return
 	}
 
@@ -97,16 +93,11 @@ func (c *OrderController) CreateOrder(ctx *gin.Context) {
 			errorMessage = message.ErrTicketTierNotFound
 		}
 
-		ctx.JSON(statusCode, gin.H{
-			"error": errorMessage,
-		})
+		ctx.JSON(statusCode, sharedresponse.Error(errorMessage, err.Error()))
 		return
 	}
 
-	ctx.JSON(http.StatusCreated, gin.H{
-		"message": message.MsgOrderCreated,
-		"data":    order,
-	})
+	ctx.JSON(http.StatusCreated, sharedresponse.Success(message.MsgOrderCreated, order))
 }
 
 // GetOrder handles GET /orders/:id - Get order by ID
@@ -116,9 +107,7 @@ func (c *OrderController) GetOrder(ctx *gin.Context) {
 	// Get user ID from context
 	userID, exists := ctx.Get("user_id")
 	if !exists {
-		ctx.JSON(http.StatusUnauthorized, gin.H{
-			"error": message.ErrUnauthorized,
-		})
+		ctx.JSON(http.StatusUnauthorized, sharedresponse.Error(message.ErrUnauthorized, nil))
 		return
 	}
 
@@ -136,16 +125,11 @@ func (c *OrderController) GetOrder(ctx *gin.Context) {
 			errorMessage = message.ErrForbidden
 		}
 
-		ctx.JSON(statusCode, gin.H{
-			"error": errorMessage,
-		})
+		ctx.JSON(statusCode, sharedresponse.Error(errorMessage, err.Error()))
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"message": message.MsgOrderRetrieved,
-		"data":    order,
-	})
+	ctx.JSON(http.StatusOK, sharedresponse.Success(message.MsgOrderRetrieved, order))
 }
 
 // GetUserOrders handles GET /orders - Get user's orders
@@ -153,9 +137,7 @@ func (c *OrderController) GetUserOrders(ctx *gin.Context) {
 	// Get user ID from context
 	userID, exists := ctx.Get("user_id")
 	if !exists {
-		ctx.JSON(http.StatusUnauthorized, gin.H{
-			"error": message.ErrUnauthorized,
-		})
+		ctx.JSON(http.StatusUnauthorized, sharedresponse.Error(message.ErrUnauthorized, nil))
 		return
 	}
 
@@ -166,9 +148,7 @@ func (c *OrderController) GetUserOrders(ctx *gin.Context) {
 	// Get orders
 	orders, total, err := c.orderService.GetUserOrders(ctx.Request.Context(), userID.(string), page, limit)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"error": message.ErrInternalServer,
-		})
+		ctx.JSON(http.StatusInternalServerError, sharedresponse.Error(message.ErrInternalServer, err.Error()))
 		return
 	}
 
@@ -178,18 +158,16 @@ func (c *OrderController) GetUserOrders(ctx *gin.Context) {
 		totalPages++
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"message": message.MsgOrdersRetrieved,
-		"data": gin.H{
-			"orders": orders,
-			"pagination": gin.H{
-				"current_page": page,
-				"per_page":     limit,
-				"total":        total,
-				"total_pages":  totalPages,
-			},
+	ctx.JSON(http.StatusOK, sharedresponse.SuccessWithPagination(
+		message.MsgOrdersRetrieved,
+		orders,
+		sharedresponse.PaginationMeta{
+			CurrentPage: page,
+			PerPage:     limit,
+			Total:       int(total),
+			TotalPages:  totalPages,
 		},
-	})
+	))
 }
 
 // CancelOrder handles POST /orders/:id/cancel - Cancel order
@@ -199,9 +177,7 @@ func (c *OrderController) CancelOrder(ctx *gin.Context) {
 	// Get user ID from context
 	userID, exists := ctx.Get("user_id")
 	if !exists {
-		ctx.JSON(http.StatusUnauthorized, gin.H{
-			"error": message.ErrUnauthorized,
-		})
+		ctx.JSON(http.StatusUnauthorized, sharedresponse.Error(message.ErrUnauthorized, nil))
 		return
 	}
 
@@ -221,15 +197,11 @@ func (c *OrderController) CancelOrder(ctx *gin.Context) {
 			errorMessage = message.ErrCannotCancelOrder
 		}
 
-		ctx.JSON(statusCode, gin.H{
-			"error": errorMessage,
-		})
+		ctx.JSON(statusCode, sharedresponse.Error(errorMessage, err.Error()))
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"message": message.MsgOrderCancelled,
-	})
+	ctx.JSON(http.StatusOK, sharedresponse.Success(message.MsgOrderCancelled, nil))
 }
 
 // ConfirmPayment handles POST /orders/:id/confirm - Confirm payment (webhook/internal)
@@ -237,9 +209,7 @@ func (c *OrderController) ConfirmPayment(ctx *gin.Context) {
 	// Get order ID from URL path parameter
 	orderID := ctx.Param("id")
 	if orderID == "" {
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"error": "Order ID is required",
-		})
+		ctx.JSON(http.StatusBadRequest, sharedresponse.Error("Order ID is required", nil))
 		return
 	}
 
@@ -247,10 +217,7 @@ func (c *OrderController) ConfirmPayment(ctx *gin.Context) {
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		log.Printf("[DEBUG] ConfirmPayment - Bind JSON failed. Error: %v", err)
 		log.Printf("[DEBUG] Request body: %+v", req)
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"error":   message.ErrInvalidRequest,
-			"details": err.Error(),
-		})
+		ctx.JSON(http.StatusBadRequest, sharedresponse.Error(message.ErrInvalidRequest, err.Error()))
 		return
 	}
 
@@ -280,13 +247,9 @@ func (c *OrderController) ConfirmPayment(ctx *gin.Context) {
 			errorMessage = err.Error()
 		}
 
-		ctx.JSON(statusCode, gin.H{
-			"error": errorMessage,
-		})
+		ctx.JSON(statusCode, sharedresponse.Error(errorMessage, err.Error()))
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"message": message.MsgOrderConfirmed,
-	})
+	ctx.JSON(http.StatusOK, sharedresponse.Success(message.MsgOrderConfirmed, nil))
 }

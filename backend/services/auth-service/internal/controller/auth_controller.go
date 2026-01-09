@@ -6,9 +6,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	sharedresponse "github.com/raflibima25/event-ticketing-platform/backend/pkg/response"
 	"github.com/raflibima25/event-ticketing-platform/backend/services/auth-service/internal/message"
 	"github.com/raflibima25/event-ticketing-platform/backend/services/auth-service/internal/payload/request"
-	"github.com/raflibima25/event-ticketing-platform/backend/services/auth-service/internal/payload/response"
 	"github.com/raflibima25/event-ticketing-platform/backend/services/auth-service/internal/repository"
 	"github.com/raflibima25/event-ticketing-platform/backend/services/auth-service/internal/service"
 )
@@ -40,11 +40,7 @@ func (c *AuthController) Register(ctx *gin.Context) {
 
 	// Bind and validate request
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, response.ErrorResponse{
-			Success: false,
-			Message: message.ErrInvalidRequest,
-			Error:   err.Error(),
-		})
+		ctx.JSON(http.StatusBadRequest, sharedresponse.Error(message.ErrInvalidRequest, err.Error()))
 		return
 	}
 
@@ -63,20 +59,12 @@ func (c *AuthController) Register(ctx *gin.Context) {
 			errorMessage = message.ErrHashPassword
 		}
 
-		ctx.JSON(statusCode, response.ErrorResponse{
-			Success: false,
-			Message: errorMessage,
-			Error:   err.Error(),
-		})
+		ctx.JSON(statusCode, sharedresponse.Error(errorMessage, err.Error()))
 		return
 	}
 
 	// Success response
-	ctx.JSON(http.StatusCreated, response.SuccessResponse{
-		Success: true,
-		Message: message.MsgRegisterSuccess,
-		Data:    authResponse,
-	})
+	ctx.JSON(http.StatusCreated, sharedresponse.Success(message.MsgRegisterSuccess, authResponse))
 }
 
 // Login handles user login request
@@ -95,11 +83,7 @@ func (c *AuthController) Login(ctx *gin.Context) {
 
 	// Bind and validate request
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, response.ErrorResponse{
-			Success: false,
-			Message: message.ErrInvalidRequest,
-			Error:   err.Error(),
-		})
+		ctx.JSON(http.StatusBadRequest, sharedresponse.Error(message.ErrInvalidRequest, err.Error()))
 		return
 	}
 
@@ -115,20 +99,12 @@ func (c *AuthController) Login(ctx *gin.Context) {
 			errorMessage = message.ErrInvalidCredentials
 		}
 
-		ctx.JSON(statusCode, response.ErrorResponse{
-			Success: false,
-			Message: errorMessage,
-			Error:   err.Error(),
-		})
+		ctx.JSON(statusCode, sharedresponse.Error(errorMessage, err.Error()))
 		return
 	}
 
 	// Success response
-	ctx.JSON(http.StatusOK, response.SuccessResponse{
-		Success: true,
-		Message: message.MsgLoginSuccess,
-		Data:    authResponse,
-	})
+	ctx.JSON(http.StatusOK, sharedresponse.Success(message.MsgLoginSuccess, authResponse))
 }
 
 // GetProfile retrieves current user profile
@@ -144,10 +120,7 @@ func (c *AuthController) GetProfile(ctx *gin.Context) {
 	// Get user ID from context (set by auth middleware)
 	userID, exists := ctx.Get("user_id")
 	if !exists {
-		ctx.JSON(http.StatusUnauthorized, response.ErrorResponse{
-			Success: false,
-			Message: message.ErrUnauthorized,
-		})
+		ctx.JSON(http.StatusUnauthorized, sharedresponse.Error(message.ErrUnauthorized, nil))
 		return
 	}
 
@@ -162,20 +135,12 @@ func (c *AuthController) GetProfile(ctx *gin.Context) {
 			errorMessage = message.ErrUserNotFound
 		}
 
-		ctx.JSON(statusCode, response.ErrorResponse{
-			Success: false,
-			Message: errorMessage,
-			Error:   err.Error(),
-		})
+		ctx.JSON(statusCode, sharedresponse.Error(errorMessage, err.Error()))
 		return
 	}
 
 	// Success response
-	ctx.JSON(http.StatusOK, response.SuccessResponse{
-		Success: true,
-		Message: "Profile retrieved successfully",
-		Data:    userResponse,
-	})
+	ctx.JSON(http.StatusOK, sharedresponse.Success("Profile retrieved successfully", userResponse))
 }
 
 // Health check endpoint

@@ -21,17 +21,3 @@ type UserResponse struct {
 	IsEmailVerified bool      `json:"is_email_verified"`
 	CreatedAt       time.Time `json:"created_at"`
 }
-
-// SuccessResponse represents generic success response
-type SuccessResponse struct {
-	Success bool        `json:"success"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-}
-
-// ErrorResponse represents error response
-type ErrorResponse struct {
-	Success bool   `json:"success"`
-	Message string `json:"message"`
-	Error   string `json:"error,omitempty"`
-}

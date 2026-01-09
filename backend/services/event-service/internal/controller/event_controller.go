@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	sharedresponse "github.com/raflibima25/event-ticketing-platform/backend/pkg/response"
 	"github.com/raflibima25/event-ticketing-platform/backend/services/event-service/internal/message"
 	"github.com/raflibima25/event-ticketing-platform/backend/services/event-service/internal/payload/request"
 	"github.com/raflibima25/event-ticketing-platform/backend/services/event-service/internal/service"
@@ -118,25 +119,17 @@ func (c *EventController) GetEventBySlug(ctx *gin.Context) {
 func (c *EventController) ListEvents(ctx *gin.Context) {
 	var filters request.ListEventsRequest
 	if err := ctx.ShouldBindQuery(&filters); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"error":   message.ErrInvalidRequest,
-			"details": err.Error(),
-		})
+		ctx.JSON(http.StatusBadRequest, sharedresponse.Error(message.ErrInvalidRequest, err.Error()))
 		return
 	}
 
 	events, err := c.eventService.ListEvents(ctx.Request.Context(), filters)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"error": message.ErrInternalServer,
-		})
+		ctx.JSON(http.StatusInternalServerError, sharedresponse.Error(message.ErrInternalServer, err.Error()))
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"message": message.MsgEventsRetrieved,
-		"data":    events,
-	})
+	ctx.JSON(http.StatusOK, sharedresponse.Success(message.MsgEventsRetrieved, events))
 }
 
 // UpdateEvent handles PUT /events/:id

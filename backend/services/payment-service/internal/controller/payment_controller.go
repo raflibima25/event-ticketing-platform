@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	sharedresponse "github.com/raflibima25/event-ticketing-platform/backend/pkg/response"
 	"github.com/raflibima25/event-ticketing-platform/backend/services/payment-service/internal/message"
 	"github.com/raflibima25/event-ticketing-platform/backend/services/payment-service/internal/payload/request"
 	"github.com/raflibima25/event-ticketing-platform/backend/services/payment-service/internal/service"
@@ -27,10 +28,7 @@ func NewPaymentController(paymentService service.PaymentService) *PaymentControl
 func (c *PaymentController) CreateInvoice(ctx *gin.Context) {
 	var req request.CreateInvoiceRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"error":   message.ErrInvalidRequest,
-			"details": err.Error(),
-		})
+		ctx.JSON(http.StatusBadRequest, sharedresponse.Error(message.ErrInvalidRequest, err.Error()))
 		return
 	}
 
@@ -50,16 +48,11 @@ func (c *PaymentController) CreateInvoice(ctx *gin.Context) {
 			errorMessage = message.ErrXenditAPIError
 		}
 
-		ctx.JSON(statusCode, gin.H{
-			"error": errorMessage,
-		})
+		ctx.JSON(statusCode, sharedresponse.Error(errorMessage, err.Error()))
 		return
 	}
 
-	ctx.JSON(http.StatusCreated, gin.H{
-		"message": message.MsgInvoiceCreated,
-		"data":    invoice,
-	})
+	ctx.JSON(http.StatusCreated, sharedresponse.Success(message.MsgInvoiceCreated, invoice))
 }
 
 // GetInvoice handles GET /invoices/:orderId - Get invoice by order ID
@@ -78,14 +71,9 @@ func (c *PaymentController) GetInvoice(ctx *gin.Context) {
 			errorMessage = message.ErrPaymentNotFound
 		}
 
-		ctx.JSON(statusCode, gin.H{
-			"error": errorMessage,
-		})
+		ctx.JSON(statusCode, sharedresponse.Error(errorMessage, err.Error()))
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"message": message.MsgInvoiceRetrieved,
-		"data":    invoice,
-	})
+	ctx.JSON(http.StatusOK, sharedresponse.Success(message.MsgInvoiceRetrieved, invoice))
 }

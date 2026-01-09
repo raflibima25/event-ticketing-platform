@@ -47,8 +47,8 @@ type TicketTierResponse struct {
 
 // PaginatedEventsResponse represents paginated events response
 type PaginatedEventsResponse struct {
-	Events     []EventResponse `json:"events"`
-	Pagination PaginationMeta  `json:"pagination"`
+	Events []EventResponse `json:"events"`
+	Meta   PaginationMeta  `json:"meta"`
 }
 
 // PaginationMeta represents pagination metadata
@@ -57,20 +57,6 @@ type PaginationMeta struct {
 	PerPage     int   `json:"per_page"`
 	Total       int64 `json:"total"`
 	TotalPages  int   `json:"total_pages"`
-}
-
-// SuccessResponse represents generic success response
-type SuccessResponse struct {
-	Success bool        `json:"success"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-}
-
-// ErrorResponse represents error response
-type ErrorResponse struct {
-	Success bool   `json:"success"`
-	Message string `json:"message"`
-	Error   string `json:"error,omitempty"`
 }
 
 // ToEventResponse converts Event entity to EventResponse

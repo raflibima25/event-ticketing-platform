@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	sharedresponse "github.com/raflibima25/event-ticketing-platform/backend/pkg/response"
 	"github.com/raflibima25/event-ticketing-platform/backend/services/payment-service/config"
 	"github.com/raflibima25/event-ticketing-platform/backend/services/payment-service/internal/message"
 	"github.com/raflibima25/event-ticketing-platform/backend/services/payment-service/internal/repository"
@@ -35,9 +36,7 @@ func (c *WebhookController) HandleXenditWebhook(ctx *gin.Context) {
 	callbackToken := ctx.GetHeader("x-callback-token")
 	if err := utility.VerifyCallbackToken(callbackToken, c.webhookToken); err != nil {
 		log.Printf("[ERROR] Invalid webhook signature/token")
-		ctx.JSON(http.StatusUnauthorized, gin.H{
-			"error": message.ErrInvalidSignature,
-		})
+		ctx.JSON(http.StatusUnauthorized, sharedresponse.Error(message.ErrInvalidSignature, err.Error()))
 		return
 	}
 
@@ -45,9 +44,7 @@ func (c *WebhookController) HandleXenditWebhook(ctx *gin.Context) {
 	body, err := io.ReadAll(ctx.Request.Body)
 	if err != nil {
 		log.Printf("[ERROR] Failed to read webhook body: %v", err)
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"error": message.ErrInvalidRequest,
-		})
+		ctx.JSON(http.StatusBadRequest, sharedresponse.Error(message.ErrInvalidRequest, err.Error()))
 		return
 	}
 
@@ -74,33 +71,26 @@ func (c *WebhookController) HandleXenditWebhook(ctx *gin.Context) {
 		// Handle duplicate webhooks (idempotency)
 		if errors.Is(err, service.ErrDuplicateWebhook) {
 			log.Printf("[INFO] Duplicate webhook: %s", webhookID)
-			ctx.JSON(http.StatusOK, gin.H{
-				"message": "Webhook already processed",
-			})
+			ctx.JSON(http.StatusOK, sharedresponse.Success("Webhook already processed", nil))
 			return
 		}
 
 		// Handle payment not found (test webhooks or race conditions)
 		if errors.Is(err, repository.ErrPaymentNotFound) || strings.Contains(err.Error(), "payment not found") {
 			log.Printf("[WARN] Payment not found for webhook %s - possibly test webhook or race condition", webhookID)
-			ctx.JSON(http.StatusOK, gin.H{
-				"message": "Webhook received but payment not found (possibly test webhook)",
-			})
+			ctx.JSON(http.StatusOK, sharedresponse.Success("Webhook received but payment not found (possibly test webhook)", nil))
 			return
 		}
 
 		// Log actual errors but still return 200 to prevent Xendit retries
 		// Only critical errors should return 500
 		log.Printf("[ERROR] Failed to process webhook %s: %v", webhookID, err)
-		ctx.JSON(http.StatusOK, gin.H{
-			"message": "Webhook received with errors",
+		ctx.JSON(http.StatusOK, sharedresponse.Success("Webhook received with errors", map[string]string{
 			"warning": "Payment processing may have failed - check logs",
-		})
+		}))
 		return
 	}
 
 	// Step 5: Return success response
-	ctx.JSON(http.StatusOK, gin.H{
-		"message": message.MsgWebhookProcessed,
-	})
+	ctx.JSON(http.StatusOK, sharedresponse.Success(message.MsgWebhookProcessed, nil))
 }
