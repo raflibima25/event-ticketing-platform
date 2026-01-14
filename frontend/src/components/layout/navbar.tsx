@@ -4,11 +4,12 @@ import Link from "next/link";
 import { useAuthStore } from "@/store/authStore";
 import { Button } from "@/components/ui/button";
 import { logout } from "@/lib/api/auth";
-import { useEffect } from "react";
-import { User, LogOut, Calendar } from "lucide-react";
+import { useEffect, useState } from "react";
+import { User, LogOut, Calendar, Ticket, ShoppingBag, ChevronDown } from "lucide-react";
 
 export function Navbar() {
   const { user, isAuthenticated, initAuth } = useAuthStore();
+  const [showUserMenu, setShowUserMenu] = useState(false);
 
   useEffect(() => {
     initAuth();
@@ -16,6 +17,7 @@ export function Navbar() {
 
   const handleLogout = () => {
     logout();
+    setShowUserMenu(false);
   };
 
   return (
@@ -32,13 +34,19 @@ export function Navbar() {
           <div className="flex items-center gap-4">
             {isAuthenticated && user ? (
               <>
-                <div className="flex items-center gap-2 text-sm">
-                  <User className="h-4 w-4 text-gray-600" />
-                  <span className="text-gray-700">{user.full_name}</span>
-                  <span className="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded">
-                    {user.role}
-                  </span>
-                </div>
+                <Link href="/tickets">
+                  <Button variant="ghost" size="sm" className="flex items-center gap-2">
+                    <Ticket className="h-4 w-4" />
+                    <span className="hidden md:inline">Tiket Saya</span>
+                  </Button>
+                </Link>
+
+                <Link href="/orders">
+                  <Button variant="ghost" size="sm" className="flex items-center gap-2">
+                    <ShoppingBag className="h-4 w-4" />
+                    <span className="hidden md:inline">Pesanan</span>
+                  </Button>
+                </Link>
 
                 {user.role === "organizer" && (
                   <Link href="/organizer/dashboard">
@@ -48,15 +56,37 @@ export function Navbar() {
                   </Link>
                 )}
 
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleLogout}
-                  className="flex items-center gap-2"
-                >
-                  <LogOut className="h-4 w-4" />
-                  Keluar
-                </Button>
+                <div className="relative">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowUserMenu(!showUserMenu)}
+                    className="flex items-center gap-2"
+                  >
+                    <User className="h-4 w-4" />
+                    <span className="hidden md:inline">{user.full_name}</span>
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+
+                  {showUserMenu && (
+                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border py-1 z-50">
+                      <Link href="/profile">
+                        <div className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-2">
+                          <User className="h-4 w-4" />
+                          <span>Profil</span>
+                        </div>
+                      </Link>
+                      <div className="border-t my-1"></div>
+                      <div
+                        onClick={handleLogout}
+                        className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-2 text-red-600"
+                      >
+                        <LogOut className="h-4 w-4" />
+                        <span>Keluar</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </>
             ) : (
               <>

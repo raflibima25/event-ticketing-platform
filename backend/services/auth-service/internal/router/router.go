@@ -11,19 +11,8 @@ import (
 func SetupRouter(authController *controller.AuthController, jwtSecret string) *gin.Engine {
 	router := gin.Default()
 
-	// CORS middleware
-	router.Use(func(c *gin.Context) {
-		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
-		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-
-		if c.Request.Method == "OPTIONS" {
-			c.AbortWithStatus(204)
-			return
-		}
-
-		c.Next()
-	})
+	// NOTE: CORS is handled by API Gateway - do not add CORS middleware here
+	// Adding CORS here causes duplicate Access-Control-Allow-Origin headers
 
 	// Health check (public)
 	router.GET("/health", authController.Health)
