@@ -190,7 +190,7 @@ steps:
       - '--region=${_REGION}'
       - '--platform=managed'
       - '--allow-unauthenticated'
-      - '--set-env-vars=CORS_ALLOWED_ORIGINS=http://localhost:3000,https://localhost:3000'
+      - '--set-env-vars=^;^CORS_ALLOWED_ORIGINS=http://localhost:3000,https://localhost:3000'
     waitFor: ['push-gateway-service']
 
   # Deploy Event Service
