@@ -190,7 +190,7 @@ steps:
       - '--region=${_REGION}'
       - '--platform=managed'
       - '--allow-unauthenticated'
-      - '--set-env-vars=^;^CORS_ALLOWED_ORIGINS=http://localhost:3000,https://localhost:3000'
+      - '--set-env-vars=^;^CORS_ALLOWED_ORIGINS=http://localhost:3000,https://localhost:3000;AUTH_SERVICE_URL=https://auth-service-kyficgrsia-et.a.run.app;EVENT_SERVICE_URL=https://event-service-kyficgrsia-et.a.run.app;TICKETING_SERVICE_URL=https://ticketing-service-kyficgrsia-et.a.run.app;PAYMENT_SERVICE_URL=https://payment-service-kyficgrsia-et.a.run.app;NOTIFICATION_SERVICE_URL=https://notification-service-kyficgrsia-et.a.run.app;ENVIRONMENT=production'
     waitFor: ['push-gateway-service']
 
   # Deploy Event Service
