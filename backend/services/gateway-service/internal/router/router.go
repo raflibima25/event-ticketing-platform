@@ -61,12 +61,16 @@ func SetupRouter(cfg *config.Config) *gin.Engine {
 			// Public routes
 			auth.POST("/register", pkg.ProxyHandler(cfg.Services.AuthService))
 			auth.POST("/login", pkg.ProxyHandler(cfg.Services.AuthService))
+			auth.POST("/refresh", pkg.ProxyHandler(cfg.Services.AuthService))
+			auth.POST("/forgot-password", pkg.ProxyHandler(cfg.Services.AuthService))
+			auth.POST("/reset-password", pkg.ProxyHandler(cfg.Services.AuthService))
 
 			// Protected routes
 			authProtected := auth.Group("")
 			authProtected.Use(middleware.AuthMiddleware(cfg.JWTSecret))
 			{
 				authProtected.GET("/profile", pkg.ProxyHandler(cfg.Services.AuthService))
+				authProtected.POST("/change-password", pkg.ProxyHandler(cfg.Services.AuthService))
 			}
 		}
 

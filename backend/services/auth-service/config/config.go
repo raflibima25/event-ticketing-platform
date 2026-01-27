@@ -8,13 +8,14 @@ import (
 
 // Config holds application configuration
 type Config struct {
-	Port        string
-	Database    DatabaseConfig
-	Redis       RedisConfig
-	JWTSecret   string
-	JWTExpiry   string
-	BcryptCost  int
-	Environment string
+	Port               string
+	Database           DatabaseConfig
+	Redis              RedisConfig
+	JWTSecret          string
+	JWTExpiry          string
+	RefreshTokenExpiry string
+	BcryptCost         int
+	Environment        string
 }
 
 // DatabaseConfig holds database configuration
@@ -56,10 +57,11 @@ func Load() *Config {
 			Password: getEnv("REDIS_PASSWORD", ""),
 			DB:       redisDB,
 		},
-		JWTSecret:   getEnv("JWT_SECRET", "dev-secret-key"),
-		JWTExpiry:   getEnv("JWT_EXPIRY", "24h"),
-		BcryptCost:  bcryptCost,
-		Environment: getEnv("ENVIRONMENT", "development"),
+		JWTSecret:          getEnv("JWT_SECRET", "dev-secret-key"),
+		JWTExpiry:          getEnv("JWT_EXPIRY", "24h"),
+		RefreshTokenExpiry: getEnv("REFRESH_TOKEN_EXPIRY", "168h"), // 7 days
+		BcryptCost:         bcryptCost,
+		Environment:        getEnv("ENVIRONMENT", "development"),
 	}
 }
 

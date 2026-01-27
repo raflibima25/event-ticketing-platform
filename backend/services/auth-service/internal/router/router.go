@@ -25,6 +25,9 @@ func SetupRouter(authController *controller.AuthController, jwtSecret string) *g
 		{
 			auth.POST("/register", authController.Register)
 			auth.POST("/login", authController.Login)
+			auth.POST("/refresh", authController.RefreshToken)
+			auth.POST("/forgot-password", authController.ForgotPassword)
+			auth.POST("/reset-password", authController.ResetPassword)
 		}
 
 		// Protected routes (require authentication)
@@ -32,6 +35,7 @@ func SetupRouter(authController *controller.AuthController, jwtSecret string) *g
 		protected.Use(middleware.AuthMiddleware(jwtSecret))
 		{
 			protected.GET("/profile", authController.GetProfile)
+			protected.POST("/change-password", authController.ChangePassword)
 		}
 	}
 

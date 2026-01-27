@@ -21,3 +21,10 @@ type UserResponse struct {
 	IsEmailVerified bool      `json:"is_email_verified"`
 	CreatedAt       time.Time `json:"created_at"`
 }
+
+// TokenRefreshResponse represents token refresh response (access token only)
+type TokenRefreshResponse struct {
+	AccessToken string `json:"access_token"`
+	TokenType   string `json:"token_type"`
+	ExpiresIn   int    `json:"expires_in"` // seconds
+}

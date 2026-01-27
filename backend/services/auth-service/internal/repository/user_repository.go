@@ -21,6 +21,7 @@ type UserRepository interface {
 	GetByEmail(ctx context.Context, email string) (*entity.User, error)
 	GetByID(ctx context.Context, id string) (*entity.User, error)
 	Update(ctx context.Context, user *entity.User) error
+	UpdatePassword(ctx context.Context, userID string, passwordHash string) error
 	Delete(ctx context.Context, id string) error
 }
 
@@ -150,6 +151,31 @@ func (r *userRepository) Update(ctx context.Context, user *entity.User) error {
 	result, err := r.db.ExecContext(ctx, query, user.FullName, user.Phone, user.ID)
 	if err != nil {
 		return fmt.Errorf("failed to update user: %w", err)
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rows == 0 {
+		return ErrUserNotFound
+	}
+
+	return nil
+}
+
+// UpdatePassword updates user password hash
+func (r *userRepository) UpdatePassword(ctx context.Context, userID string, passwordHash string) error {
+	query := `
+		UPDATE users
+		SET password_hash = $1, updated_at = NOW()
+		WHERE id = $2 AND is_deleted = FALSE
+	`
+
+	result, err := r.db.ExecContext(ctx, query, passwordHash, userID)
+	if err != nil {
+		return fmt.Errorf("failed to update password: %w", err)
 	}
 
 	rows, err := result.RowsAffected()

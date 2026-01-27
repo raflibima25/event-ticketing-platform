@@ -67,21 +67,22 @@ func main() {
 	}
 
 	// Initialize JWT utility
-	jwtUtil, err := utility.NewJWTUtil(cfg.JWTSecret, cfg.JWTExpiry)
+	jwtUtil, err := utility.NewJWTUtil(cfg.JWTSecret, cfg.JWTExpiry, cfg.RefreshTokenExpiry)
 	if err != nil {
 		log.Fatalf("Failed to initialize JWT utility: %v", err)
 	}
 
-	log.Println("✓ JWT utility initialized")
+	log.Printf("✓ JWT utility initialized (access: %s, refresh: %s)", cfg.JWTExpiry, cfg.RefreshTokenExpiry)
 
 	// === Dependency Injection (following SOLID principles) ===
 
 	// 1. Initialize Repository Layer (Data Access)
 	userRepo := repository.NewUserRepository(db)
+	passwordResetRepo := repository.NewPasswordResetRepository(db)
 	log.Println("✓ Repository layer initialized")
 
 	// 2. Initialize Service Layer (Business Logic)
-	authService := service.NewAuthService(userRepo, jwtUtil, redisClient, cfg.BcryptCost)
+	authService := service.NewAuthService(userRepo, passwordResetRepo, jwtUtil, redisClient, cfg.BcryptCost)
 	log.Println("✓ Service layer initialized")
 
 	// 3. Initialize Controller Layer (HTTP Handlers)
