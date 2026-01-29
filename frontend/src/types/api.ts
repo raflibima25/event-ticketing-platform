@@ -71,6 +71,20 @@ export interface AuthResponse {
   user: User;
 }
 
+export interface ChangePasswordRequest {
+  current_password: string;
+  new_password: string;
+}
+
+export interface ForgotPasswordRequest {
+  email: string;
+}
+
+export interface ResetPasswordRequest {
+  token: string;
+  new_password: string;
+}
+
 // ============================================
 // Event Types
 // ============================================
@@ -103,8 +117,13 @@ export interface TicketTier {
   quota: number;
   sold_count: number;
   available_count: number;
-  sale_start_date: string;
-  sale_end_date: string;
+  max_per_order: number;
+  early_bird_price?: number;
+  early_bird_end_date?: string;
+  current_price: number;
+  is_sold_out: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface EventDetail extends Event {

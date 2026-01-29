@@ -87,6 +87,15 @@ export function LoginForm() {
         {...register("password")}
       />
 
+      <div className="flex justify-end">
+        <Link
+          href="/forgot-password"
+          className="text-sm text-blue-600 hover:underline"
+        >
+          Lupa password?
+        </Link>
+      </div>
+
       <Button type="submit" className="w-full" isLoading={isSubmitting}>
         Masuk
       </Button>

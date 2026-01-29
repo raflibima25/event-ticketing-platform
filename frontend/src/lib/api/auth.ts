@@ -4,6 +4,9 @@ import type {
   RegisterRequest,
   AuthResponse,
   User,
+  ChangePasswordRequest,
+  ForgotPasswordRequest,
+  ResetPasswordRequest,
 } from "@/types/api";
 
 /**
@@ -37,4 +40,25 @@ export function logout(): void {
     localStorage.removeItem("user");
     window.location.href = "/login";
   }
+}
+
+/**
+ * Change password for authenticated user
+ */
+export async function changePassword(data: ChangePasswordRequest): Promise<void> {
+  await post<void, ChangePasswordRequest>("/auth/change-password", data);
+}
+
+/**
+ * Request password reset email
+ */
+export async function forgotPassword(data: ForgotPasswordRequest): Promise<void> {
+  await post<void, ForgotPasswordRequest>("/auth/forgot-password", data);
+}
+
+/**
+ * Reset password with token
+ */
+export async function resetPassword(data: ResetPasswordRequest): Promise<void> {
+  await post<void, ResetPasswordRequest>("/auth/reset-password", data);
 }

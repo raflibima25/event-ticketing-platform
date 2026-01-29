@@ -3,14 +3,16 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { User, Mail, Phone, Calendar, Shield, Loader2 } from "lucide-react";
+import { User, Mail, Phone, Calendar, Shield, Loader2, Lock, X } from "lucide-react";
 import { getProfile } from "@/lib/api/auth";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { ChangePasswordForm } from "@/components/auth/change-password-form";
 
 export default function ProfilePage() {
   const router = useRouter();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [showChangePassword, setShowChangePassword] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem("access_token");
@@ -137,11 +139,35 @@ export default function ProfilePage() {
                 <Button variant="outline" className="flex-1" disabled>
                   Edit Profil
                 </Button>
-                <Button variant="outline" className="flex-1" disabled>
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => setShowChangePassword(true)}
+                >
+                  <Lock className="h-4 w-4 mr-2" />
                   Ubah Password
                 </Button>
               </div>
             </Card>
+
+            {/* Change Password Section */}
+            {showChangePassword && (
+              <Card className="p-6 mt-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-bold">Ubah Password</h3>
+                  <button
+                    onClick={() => setShowChangePassword(false)}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+                <ChangePasswordForm
+                  onSuccess={() => setShowChangePassword(false)}
+                  onCancel={() => setShowChangePassword(false)}
+                />
+              </Card>
+            )}
           </div>
 
           {/* Quick Actions */}
