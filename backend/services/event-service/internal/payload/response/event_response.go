@@ -35,7 +35,7 @@ type TicketTierResponse struct {
 	Price            float64    `json:"price"`
 	Quota            int        `json:"quota"`
 	SoldCount        int        `json:"sold_count"`
-	Available        int        `json:"available"` // Calculated field
+	Available        int        `json:"available_count"` // Calculated field
 	MaxPerOrder      int        `json:"max_per_order"`
 	EarlyBirdPrice   *float64   `json:"early_bird_price,omitempty"`
 	EarlyBirdEndDate *time.Time `json:"early_bird_end_date,omitempty"`
